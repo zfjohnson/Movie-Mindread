@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+
+{% block title %}Movie Mindread - Waiting for Guesses{% endblock %}
+
+{% block content %}
+<div class="game-container text-center">
+    <h2 class="mb-4">Waiting for Guesses</h2>
+    
+    <div class="card movie-card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">Selected Movie</h5>
+            <p class="card-text" id="selectedMovie">{{ movie.title }}</p>
+        </div>
+    </div>
+
+    <div class="guess-history">
+        <h4>Guess History</h4>
+        <div id="guessList" class="list-group">
+            <!-- Guesses will be added here -->
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function updateGuessHistory() {
+    fetch("{% url 'trivia_game:get_guesses' %}")
+        .then(response => response.json())
+        .then(data => {
+            const guessList = document.getElementById('guessList');
+            guessList.innerHTML = '';
+            
+            data.guesses.forEach(guess => {
+                const guessItem = document.createElement('div');
+                guessItem.className = 'list-group-item bg-dark text-white';
+                guessItem.textContent = `Guess #${guess.number}: ${guess.text}`;
+                guessList.appendChild(guessItem);
+            });
+
+            if (data.game_over) {
+                window.location.href = "{% url 'trivia_game:game_over' %}";
+            }
+        });
+}
+
+// Update guess history every 2 seconds
+setInterval(updateGuessHistory, 2000);
+</script>
+{% endblock %}

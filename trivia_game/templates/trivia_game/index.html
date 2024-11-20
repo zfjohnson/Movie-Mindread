@@ -1,0 +1,89 @@
+{% extends 'trivia_game/base.html' %}
+{% load static %}
+
+{% block title %}Movie Mindread - Start Game{% endblock %}
+
+{% block content %}
+<div class="game-container text-center">
+    <h1 class="mb-4">Welcome to Movie Mindread</h1>
+    <p class="lead mb-5">Test your movie knowledge in this exciting two-player trivia game!</p>
+    
+    <div class="row justify-content-center mb-5">
+        <div class="col-md-6">
+            <div class="card movie-card">
+                <div class="card-body">
+                    <h5 class="card-title">Ready to Play?</h5>
+                    <p class="card-text">Start your movie guessing adventure!</p>
+                    <div class="d-grid">
+                        <a href="{% url 'trivia_game:choose_movie' %}" class="btn btn-primary btn-lg">
+                            <i class="fas fa-play"></i> Start Game
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="rules-section">
+        <h3>How to Play</h3>
+        <div class="text-start">
+            <ul class="list-group list-group-flush bg-transparent">
+                <li class="list-group-item bg-transparent">The Chooser selects a movie from our database</li>
+                <li class="list-group-item bg-transparent">The Guesser has 9 attempts to guess the movie</li>
+                <li class="list-group-item bg-transparent">After each incorrect guess, a new trivia fact is revealed</li>
+                <li class="list-group-item bg-transparent">Trivia starts hard and gets easier as the game progresses</li>
+                <li class="list-group-item bg-transparent">Score points based on how quickly you guess the movie!</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<style>
+.game-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+.movie-card {
+    border-radius: 15px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s;
+}
+
+.movie-card:hover {
+    transform: translateY(-5px);
+}
+
+.rules-section {
+    margin-top: 3rem;
+    padding: 2rem;
+    border-radius: 15px;
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.list-group-item {
+    border: none;
+    padding: 0.75rem 1.25rem;
+    margin-bottom: 0.5rem;
+    border-radius: 8px !important;
+}
+
+.btn-primary {
+    padding: 0.75rem 1.5rem;
+    font-size: 1.1rem;
+    border-radius: 8px;
+    transition: all 0.2s;
+}
+
+.btn-lg {
+    padding: 1rem 2rem;
+    font-size: 1.25rem;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+</style>
+{% endblock %}

@@ -1,0 +1,254 @@
+{% extends 'trivia_game/base.html' %}
+{% load static %}
+
+{% block title %}Movie Mindread - Make Your Guess{% endblock %}
+
+{% block content %}
+<div class="game-container">
+    <div id="waiting-message" class="alert alert-info text-center">
+        Waiting for player 1 to choose a movie...
+        <div class="spinner-border spinner-border-sm ms-2" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+
+    <div id="game-content" style="display: none;">
+        <div class="row mb-4">
+            <div class="col">
+                <h2>Guess the Movie</h2>
+                <div class="score-display mb-3">
+                    Guesses Remaining: <span id="guessesRemaining">9</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="trivia-section mb-4">
+            <h4>Revealed Trivia:</h4>
+            <div id="triviaList" class="mb-4">
+                <!-- Trivia facts will be added here -->
+            </div>
+        </div>
+
+        <div class="guess-section">
+            <form id="guessForm" onsubmit="makeGuess(event)">
+                <div class="input-group mb-3">
+                    <input type="text" 
+                           id="guessInput" 
+                           class="form-control guess-input" 
+                           placeholder="Enter your movie guess..."
+                           autocomplete="off"
+                           required>
+                    <button class="btn btn-primary" type="submit">
+                        <i class="fas fa-paper-plane"></i> Make Guess
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Game Over Modal -->
+    <div class="modal fade" id="gameOverModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="gameOverTitle">Game Over</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="gameOverMessage">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" onclick="window.location.href='{% url 'trivia_game:index' %}'">
+                        Play Again
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.game-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+.trivia-section {
+    background-color: rgba(0, 0, 0, 0.05);
+    padding: 1.5rem;
+    border-radius: 15px;
+}
+
+.trivia-box {
+    background-color: white;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateY(-20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.guess-input {
+    border-radius: 8px 0 0 8px;
+    padding: 0.75rem 1rem;
+    font-size: 1.1rem;
+}
+
+.guess-section .btn {
+    border-radius: 0 8px 8px 0;
+    padding: 0.75rem 1.5rem;
+}
+
+.score-display {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #007bff;
+}
+
+#waiting-message {
+    padding: 2rem;
+    border-radius: 15px;
+    font-size: 1.2rem;
+}
+
+.modal-content {
+    border-radius: 15px;
+}
+
+.modal-header {
+    border-radius: 15px 15px 0 0;
+}
+
+.modal-footer {
+    border-radius: 0 0 15px 15px;
+}
+</style>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let gameOverModal;
+let checkMovieInterval;
+
+document.addEventListener('DOMContentLoaded', function() {
+    gameOverModal = new bootstrap.Modal(document.getElementById('gameOverModal'));
+    checkMovieInterval = setInterval(checkForMovie, 2000);
+});
+
+function checkForMovie() {
+    fetch("{% url 'trivia_game:get_guesses' %}")
+        .then(response => response.json())
+        .then(data => {
+            if (data.chosen_movie_id) {
+                clearInterval(checkMovieInterval);
+                document.getElementById('waiting-message').style.display = 'none';
+                document.getElementById('game-content').style.display = 'block';
+                
+                // If there are existing guesses, show them
+                if (data.guesses && data.guesses.length > 0) {
+                    const triviaList = document.getElementById('triviaList');
+                    data.guesses.forEach(guess => {
+                        const triviaBox = document.createElement('div');
+                        triviaBox.className = 'trivia-box';
+                        triviaBox.textContent = guess.trivia;
+                        triviaList.appendChild(triviaBox);
+                    });
+                    
+                    document.getElementById('guessesRemaining').textContent = 
+                        9 - data.guesses.length;
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error checking for movie:', error);
+        });
+}
+
+function makeGuess(event) {
+    event.preventDefault();
+    const guessInput = document.getElementById('guessInput');
+    const guess = guessInput.value.trim();
+    
+    if (!guess) return;
+
+    fetch("{% url 'trivia_game:make_guess' %}", {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({ guess: guess })
+    })
+    .then(response => response.json())
+    .then(data => {
+        guessInput.value = '';
+        
+        if (data.status === 'correct') {
+            document.getElementById('gameOverTitle').textContent = 'Congratulations! 🎉';
+            document.getElementById('gameOverMessage').innerHTML = `
+                <div class="text-center">
+                    <h4 class="mb-4">You've correctly guessed the movie!</h4>
+                    <div class="score-card p-3 mb-3 bg-light rounded">
+                        <p class="h5 mb-3">Final Score: ${data.score}</p>
+                        <p class="mb-2">Number of guesses: ${data.num_guesses}</p>
+                    </div>
+                </div>
+            `;
+            gameOverModal.show();
+        }
+        else if (data.status === 'game_over') {
+            document.getElementById('gameOverTitle').textContent = 'Game Over';
+            document.getElementById('gameOverMessage').innerHTML = `
+                <div class="text-center">
+                    <h4 class="mb-4">You've run out of guesses!</h4>
+                    <p class="mb-3">The movie was:</p>
+                    <p class="h3 mb-4">${data.correct_movie}</p>
+                    <p class="text-muted">Better luck next time!</p>
+                </div>
+            `;
+            gameOverModal.show();
+        }
+        else if (data.status === 'incorrect') {
+            const triviaList = document.getElementById('triviaList');
+            const triviaBox = document.createElement('div');
+            triviaBox.className = 'trivia-box';
+            triviaBox.textContent = data.trivia;
+            triviaList.appendChild(triviaBox);
+            
+            document.getElementById('guessesRemaining').textContent = 9 - data.num_guesses;
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error making guess. Please try again.');
+    });
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock %}
