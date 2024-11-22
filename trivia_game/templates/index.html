@@ -1,23 +1,34 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Testing Phase 1</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-        <div class="container">
-            <a class="navbar-brand" href="/">Database Web App</a>
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h1 class="display-4 mb-0">Movie Mind-Read</h1>
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-4">
+                        <h2>Welcome to Movie Mind-Read!</h2>
+                        <p class="lead">Test your movie knowledge in this exciting trivia game.</p>
+                        <a href="{% url 'choose_movie' %}" class="btn btn-primary btn-lg mt-3">Start Game</a>
+                    </div>
+
+                    <div class="how-to-play mt-4">
+                        <h3>How to Play</h3>
+                        <ol>
+                            <li>First player (Chooser) selects a movie from our database.</li>
+                            <li>Second player (Guesser) tries to identify the movie.</li>
+                            <li>The Guesser gets 9 attempts to guess the movie correctly.</li>
+                            <li>After each incorrect guess, a new trivia fact about the movie is revealed.</li>
+                            <li>Trivia facts start difficult and get easier as the game progresses.</li>
+                            <li>Win by guessing the movie before running out of attempts!</li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
         </div>
-    </nav>
-
-    <div class="container mt-4">
-        <h1>Movie Mindread: A Trivia Game</h1>
-        <p>Test your knowledge of movies with this interactive trivia game.</p>
     </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html>
+</div>
+{% endblock %}
