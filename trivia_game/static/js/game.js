@@ -64,11 +64,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         messageDiv.textContent = 'Incorrect guess. Try again!';
                         messageDiv.style.display = 'block';
                         
-                        // Update attempts and progress bar
+                        // Update attempts counter
                         document.getElementById('attempts-left').textContent = data.attempts_left;
-                        const progressBar = document.querySelector('.progress-bar');
-                        progressBar.style.width = `${data.progress_percentage}%`;
-                        progressBar.setAttribute('aria-valuenow', data.attempts_left);
                         
                         // Reload to show new trivia
                         setTimeout(() => {

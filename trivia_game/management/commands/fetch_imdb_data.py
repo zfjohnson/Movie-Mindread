@@ -15,10 +15,16 @@ class Command(BaseCommand):
         ia = Cinemagoer()
         count = options['count']
         
-        self.stdout.write(self.style.SUCCESS(f'Fetching {count} movies from IMDb...'))
+        self.stdout.write(self.style.SUCCESS(f'Fetching {count} movies from IMDb Top 250...'))
         
-        # Test with specific movie IDs first
-        movie_ids = ['0111161', '0068646', '0071562']  # Shawshank, Godfather, Godfather II
+        # Get Top 250 movies
+        try:
+            top250 = ia.get_top250_movies()
+            movie_ids = [str(movie.getID()) for movie in top250]
+            self.stdout.write(self.style.SUCCESS(f'Successfully fetched Top 250 list'))
+        except Exception as e:
+            self.stdout.write(self.style.ERROR(f'Failed to fetch Top 250 list: {str(e)}'))
+            return
         
         # Process movies
         successful_imports = 0
