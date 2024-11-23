@@ -1,4 +1,5 @@
 import mysql.connector
+import sys
 from mysql.connector import errorcode
 
 try:
@@ -17,10 +18,12 @@ except mysql.connector.Error as err:
         print(err)
 else:        
     cursorObject = database.cursor()
+    if sys.argv[1]:
+        if sys.argv[1] == "create":
+            cursorObject.execute("CREATE DATABASE movie_mindread;")
+        elif sys.argv[1] == "drop":
+            cursorObject.execute("DROP DATABASE IF EXISTS movie_mindread;")
 
-    cursorObject.execute("CREATE DATABASE IF NOT EXISTS movie_mindread;")
-
-    cursorObject.execute("SHOW DATABASES;")
     rows = cursorObject.fetchall()
     for row in rows:
         print(row)

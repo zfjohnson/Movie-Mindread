@@ -4,4 +4,4 @@ mysqlclient==2.2.0
 PyMySQL==1.1.0
 mysql
 mysql-connector-python
-cinemagoer==2023.5.1
+git+https://github.com/cinemagoer/cinemagoer

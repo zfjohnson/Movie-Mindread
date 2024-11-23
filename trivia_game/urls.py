@@ -10,4 +10,8 @@ urlpatterns = [
     path('play/', views.play_game, name='play_game'),
     path('guess/', views.make_guess, name='make_guess'),
     path('game-over/', views.game_over, name='game_over'),
+    path('info/<int:movie_id>/', views.movie_info, name='movie_info'),
+    path('manage/', views.manage_movies, name='manage_movies'),
+    path('add/', views.add_movie, name='add_movie'),
+    path('delete/<int:movie_id>/', views.delete_movie, name='delete_movie'),
 ]

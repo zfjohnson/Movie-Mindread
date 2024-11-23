@@ -1,7 +1,8 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.http import require_POST
-from .models import Movie, Trivia
+from django.views.decorators.csrf import csrf_protect
+from .models import Movie, Trivia, Director, Studio
 from django.db.models import Q
 import random
 import json
@@ -11,6 +12,83 @@ def index(request):
     if 'game_state' in request.session:
         del request.session['game_state']
     return render(request, "index.html")
+
+def manage_movies(request):
+    movies = Movie.objects.all().order_by('title')
+    return render(request, "trivia_game/manage_movies.html", {
+        'movies': movies
+    })
+
+def add_movie(request):
+    if request.method == 'POST':
+        try:
+            # Create or get Director if provided
+            director = None
+            if request.POST.get('director'):
+                director, _ = Director.objects.get_or_create(
+                    name=request.POST['director']
+                )
+
+            # Create or get Studio if provided
+            studio = None
+            if request.POST.get('studio'):
+                studio, _ = Studio.objects.get_or_create(
+                    name=request.POST['studio']
+                )
+
+            # Create the movie
+            movie = Movie.objects.create(
+                title=request.POST['title'],
+                release_date=int(request.POST['release_date']),
+                genre=request.POST['genre'],
+                imdb_rating=float(request.POST['imdb_rating']),
+                director=director,
+                studio=studio
+            )
+            
+            return JsonResponse({
+                'success': True,
+                'movie': {
+                    'id': movie.id,
+                    'title': movie.title,
+                    'release_date': movie.release_date,
+                    'genre': movie.genre,
+                    'imdb_rating': str(movie.imdb_rating),
+                    'director': movie.director.name if movie.director else 'Unknown',
+                    'studio': movie.studio.name if movie.studio else 'Unknown'
+                }
+            })
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            })
+    return JsonResponse({'success': False, 'error': 'Invalid request method'})
+
+@csrf_protect
+def delete_movie(request, movie_id):
+    if request.method == 'POST':
+        try:
+            movie = get_object_or_404(Movie, pk=movie_id)
+            # Check if the movie has any active games
+            if 'game_state' in request.session:
+                game_state = request.session['game_state']
+                if game_state.get('movie_id') == movie_id:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'Cannot delete movie: it is currently being used in an active game'
+                    })
+            movie.delete()
+            return JsonResponse({'success': True})
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            })
+    return JsonResponse({
+        'success': False,
+        'error': 'Invalid request method'
+    })
 
 def choose_movie(request):
     """First phase: Chooser selects a movie"""
@@ -23,6 +101,13 @@ def choose_movie(request):
         'movies': movies,
         'phase': 'chooser'
     })
+
+def movie_info(request, movie_id):
+    movie = get_object_or_404(Movie, pk=movie_id)
+    return render(request, "trivia_game/movie_info.html", {
+        'movie': movie
+    })
+
 
 def start_game(request, movie_id):
     """Transition from chooser to guesser phase"""

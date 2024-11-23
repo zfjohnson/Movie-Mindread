@@ -1,7 +1,7 @@
 from django.core.management.base import BaseCommand
 from django.db import transaction
 from trivia_game.models import Movie, Actor, Director, Studio
-from imdb import Cinemagoer
+import imdb
 import time
 import sys
 
@@ -9,29 +9,32 @@ class Command(BaseCommand):
     help = 'Fetches movie data from IMDb and populates the database'
 
     def add_arguments(self, parser):
-        parser.add_argument('--count', type=int, default=10, help='Number of top movies to fetch')
+        parser.add_argument('--count', type=int, default=25, help='Number of top movies to fetch')
 
     def handle(self, *args, **options):
-        ia = Cinemagoer()
+        ia = imdb.Cinemagoer()
         count = options['count']
         
-        self.stdout.write(self.style.SUCCESS(f'Fetching {count} movies from IMDb Top 250...'))
+        self.stdout.write(self.style.SUCCESS(f'Fetching {count} movies from IMDb...'))
         
-        # Get Top 250 movies
-        try:
-            top250 = ia.get_top250_movies()
-            movie_ids = [str(movie.getID()) for movie in top250]
-            self.stdout.write(self.style.SUCCESS(f'Successfully fetched Top 250 list'))
-        except Exception as e:
-            self.stdout.write(self.style.ERROR(f'Failed to fetch Top 250 list: {str(e)}'))
-            return
-        
+
+        top250 = ia.get_top250_movies()
+        self.stdout.write(f'Found {len(top250)} movies in Top 250')
+        movie_ids = []
+        for movie in top250:
+            movie_id = movie.getID()
+            movie_ids.append(movie_id)
+            self.stdout.write(f'Added movie ID: {movie_id} - {movie.get("title", "Unknown Title")}')
+            if len(movie_ids) >= count:
+                break
+
+        self.stdout.write(f'Processing {len(movie_ids)} movies: {movie_ids}')
         # Process movies
         successful_imports = 0
-        for i, movie_id in enumerate(movie_ids[:count], 1):
+        for movie_id in movie_ids:
             try:
                 with transaction.atomic():
-                    self.stdout.write(f'Processing movie {i}/{count}: ID={movie_id}')
+                    self.stdout.write(f'Processing movie {successful_imports+1}/{count}: ID={movie_id}')
                     
                     # Fetch movie details
                     try:
@@ -91,7 +94,7 @@ class Command(BaseCommand):
                     self.stdout.write(f'Created movie: {movie.title}')
                     
                     # Add actors
-                    cast = movie_data.get('cast', [])[:5]  # Limit to top 5 actors
+                    cast = movie_data.get('cast', [])[:6]  # Limit to top 6 actors
                     for actor_data in cast:
                         actor_name = str(actor_data)[:200]
                         actor, created = Actor.objects.get_or_create(
