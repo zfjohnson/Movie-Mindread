@@ -113,27 +113,81 @@ def start_game(request, movie_id):
     """Transition from chooser to guesser phase"""
     movie = get_object_or_404(Movie, pk=movie_id)
     
-    # Get all trivia for the movie and sort by difficulty
-    trivia_facts = list(Trivia.objects.filter(movie=movie))
+    # Get all database trivia for the movie and sort by difficulty
+    db_trivia_facts = list(Trivia.objects.filter(movie=movie))
     
-    # Shuffle trivia within each difficulty level
-    easy_trivia = [t for t in trivia_facts if t.difficulty == 'E']
-    medium_trivia = [t for t in trivia_facts if t.difficulty == 'M']
-    hard_trivia = [t for t in trivia_facts if t.difficulty == 'H']
+    # Generate additional trivia about movie details
+    movie_detail_trivia = generate_movie_trivia(movie)
     
-    random.shuffle(easy_trivia)
-    random.shuffle(medium_trivia)
+    # Combine database trivia with movie detail trivia
+    all_trivia = []
+    
+    # Add database trivia
+    for t in db_trivia_facts:
+        all_trivia.append({
+            'id': t.id,
+            'fact': t.trivia_fact,
+            'difficulty': t.difficulty,
+            'is_db_trivia': True
+        })
+    
+    # Add movie detail trivia
+    for i, t in enumerate(movie_detail_trivia):
+        all_trivia.append({
+            'id': f'detail_{i}',
+            'fact': t['fact'],
+            'difficulty': t['difficulty'],
+            'is_db_trivia': False
+        })
+    
+    # Organize trivia by difficulty (exactly 3 of each)
+    hard_trivia = [t for t in all_trivia if t['difficulty'] == 'H'][:3]
+    medium_trivia = [t for t in all_trivia if t['difficulty'] == 'M'][:3]
+    easy_trivia = [t for t in all_trivia if t['difficulty'] == 'E'][:3]
+    
+    # Ensure we have exactly 3 of each difficulty
+    while len(hard_trivia) < 3:
+        hard_trivia.append({
+            'id': f'padding_hard_{len(hard_trivia)}',
+            'fact': f'This is a challenging movie to guess',
+            'difficulty': 'H',
+            'is_db_trivia': False
+        })
+    
+    while len(medium_trivia) < 3:
+        medium_trivia.append({
+            'id': f'padding_medium_{len(medium_trivia)}',
+            'fact': f'This movie has moderate recognition',
+            'difficulty': 'M',
+            'is_db_trivia': False
+        })
+    
+    while len(easy_trivia) < 3:
+        easy_trivia.append({
+            'id': f'padding_easy_{len(easy_trivia)}',
+            'fact': f'This movie exists in our database',
+            'difficulty': 'E',
+            'is_db_trivia': False
+        })
+    
+    # Shuffle within each difficulty level
     random.shuffle(hard_trivia)
+    random.shuffle(medium_trivia)
+    random.shuffle(easy_trivia)
+    
+    # Combine all trivia in strict order (3 hard -> 3 medium -> 3 easy)
+    ordered_trivia = hard_trivia[:3] + medium_trivia[:3] + easy_trivia[:3]
     
     # Store game state in session
-    request.session['game_state'] = {
+    game_state = {
         'movie_id': movie_id,
         'attempts_left': 9,
-        'revealed_trivia': [],
-        'available_trivia': [t.id for t in hard_trivia + medium_trivia + easy_trivia],
+        'revealed_trivia': [ordered_trivia[0]],  # Start with first trivia revealed
+        'available_trivia': ordered_trivia,
         'game_over': False,
         'phase': 'guesser'
     }
+    request.session['game_state'] = game_state
     
     return redirect('play_game')
 
@@ -146,9 +200,18 @@ def play_game(request):
     
     # Get the current trivia facts that have been revealed
     revealed_trivia = []
-    for trivia_id in game_state['revealed_trivia']:
-        trivia = get_object_or_404(Trivia, pk=trivia_id)
-        revealed_trivia.append(trivia)
+    for trivia in game_state['revealed_trivia']:
+        if isinstance(trivia, dict):  # New format
+            revealed_trivia.append({
+                'fact': trivia['fact'],
+                'difficulty': trivia['difficulty']
+            })
+        else:  # Old format (database ID)
+            trivia_obj = get_object_or_404(Trivia, pk=trivia)
+            revealed_trivia.append({
+                'fact': trivia_obj.trivia_fact,
+                'difficulty': trivia_obj.difficulty
+            })
     
     # Calculate progress percentage
     progress_percentage = int((game_state['attempts_left'] / 9) * 100)
@@ -207,9 +270,9 @@ def make_guess(request):
             })
         
         # Reveal new trivia if available
-        if len(game_state.get('revealed_trivia', [])) < len(game_state.get('available_trivia', [])):
-            next_trivia_id = game_state['available_trivia'][len(game_state['revealed_trivia'])]
-            game_state['revealed_trivia'].append(next_trivia_id)
+        if len(game_state['revealed_trivia']) < len(game_state['available_trivia']):
+            next_trivia = game_state['available_trivia'][len(game_state['revealed_trivia'])]
+            game_state['revealed_trivia'].append(next_trivia)
             request.session.modified = True
         
         return JsonResponse({
@@ -240,3 +303,78 @@ def game_over(request):
         'movie': movie,
         'attempts_used': 9 - game_state['attempts_left']
     })
+
+def generate_movie_trivia(movie):
+    """Generate trivia facts about movie details"""
+    hard_facts = []
+    medium_facts = []
+    easy_facts = []
+    
+    # HARD facts
+    if movie.imdb_rating:
+        hard_facts.append({
+            'fact': f'This movie has an IMDb rating of {movie.imdb_rating}',
+            'difficulty': 'H'
+        })
+    
+    # Add more hard facts if needed
+    hard_facts.append({
+        'fact': f'This {movie.genre} movie was released by {movie.studio.name if movie.studio else "an unknown studio"} in {movie.release_date}',
+        'difficulty': 'H'
+    })
+    
+    # MEDIUM facts
+    if movie.studio:
+        medium_facts.append({
+            'fact': f'This movie was produced by {movie.studio.name}',
+            'difficulty': 'M'
+        })
+    
+    if movie.release_date:
+        medium_facts.append({
+            'fact': f'This movie was released in {movie.release_date}',
+            'difficulty': 'M'
+        })
+    
+    actors = movie.actors.all()
+    if actors:
+        actor_names = ', '.join([actor.name for actor in actors[:3]])
+        medium_facts.append({
+            'fact': f'This movie stars {actor_names}',
+            'difficulty': 'M'
+        })
+    
+    # EASY facts
+    if movie.director:
+        easy_facts.append({
+            'fact': f'This movie was directed by {movie.director.name}',
+            'difficulty': 'E'
+        })
+    
+    if movie.genre:
+        easy_facts.append({
+            'fact': f'This movie belongs to the {movie.genre} genre',
+            'difficulty': 'E'
+        })
+    
+    # Combine all facts ensuring we have at least 3 of each difficulty
+    while len(hard_facts) < 3:
+        hard_facts.append({
+            'fact': f'This is a challenging movie to guess from {movie.release_date}',
+            'difficulty': 'H'
+        })
+    
+    while len(medium_facts) < 3:
+        medium_facts.append({
+            'fact': f'This movie was made in the {movie.release_date}s',
+            'difficulty': 'M'
+        })
+    
+    while len(easy_facts) < 3:
+        easy_facts.append({
+            'fact': f'This is a {movie.genre} movie',
+            'difficulty': 'E'
+        })
+    
+    # Return exactly 3 of each difficulty
+    return (hard_facts[:3] + medium_facts[:3] + easy_facts[:3])

@@ -21,9 +21,12 @@
                                 {% for trivia in revealed_trivia %}
                                     <div class="list-group-item">
                                         <div class="d-flex w-100 justify-content-between">
-                                            <p class="mb-1">{{ trivia.trivia_fact }}</p>
+                                            <p class="mb-1">{{ trivia.fact }}</p>
                                             <span class="badge {% if trivia.difficulty == 'E' %}badge-success{% elif trivia.difficulty == 'M' %}badge-warning{% else %}badge-danger{% endif %}">
-                                                {{ trivia.get_difficulty_display }}
+                                                {% if trivia.difficulty == 'E' %}Easy
+                                                {% elif trivia.difficulty == 'M' %}Medium
+                                                {% else %}Hard
+                                                {% endif %}
                                             </span>
                                         </div>
                                     </div>
