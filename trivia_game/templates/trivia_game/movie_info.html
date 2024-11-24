@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h2 class="mb-0">Movie Details</h2>
+                </div>
+                <div class="card-body">
+                    <h3 class="card-title">{{ movie.title }} ({{ movie.release_date }})</h3>
+                    
+                    <div class="movie-details mt-4">
+                        <div class="row mb-3">
+                            <div class="col-md-4 text-muted">Genre:</div>
+                            <div class="col-md-8">{{ movie.genre }}</div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-4 text-muted">IMDb Rating:</div>
+                            <div class="col-md-8">
+                                <span class="badge bg-warning text-dark">{{ movie.imdb_rating }}/10</span>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-4 text-muted">Director:</div>
+                            <div class="col-md-8">{{ movie.director|default:"Unknown" }}</div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-4 text-muted">Studio:</div>
+                            <div class="col-md-8">{{ movie.studio|default:"Unknown" }}</div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-4 text-muted">Cast:</div>
+                            <div class="col-md-8">
+                                {% if movie.actors.all %}
+                                    <ul class="list-unstyled">
+                                        {% for actor in movie.actors.all %}
+                                            <li>{{ actor.name }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                {% else %}
+                                    No cast information available
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="text-center mt-4">
+                        <a href="{% url 'choose_movie' %}" class="btn btn-secondary me-2">
+                            <i class="fas fa-arrow-left"></i> Back to Movie Selection
+                        </a>
+                        <a href="{% url 'start_game' movie.id %}" class="btn btn-primary">
+                            <i class="fas fa-play"></i> Start Game
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

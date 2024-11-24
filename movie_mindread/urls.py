@@ -15,6 +15,7 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
+<<<<<<< HEAD
 from django.urls import path, include
 
 urlpatterns = [
@@ -22,3 +23,12 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('trivia_game.urls')),
 ]
+=======
+from django.urls import include, path
+from django.shortcuts import redirect
+
+urlpatterns = [
+    path('', include('trivia_game.urls')),  # Make trivia_game the root URL
+    path('admin/', admin.site.urls),  # Keep admin URL
+]
+>>>>>>> sqlite-version

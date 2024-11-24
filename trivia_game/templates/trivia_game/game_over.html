@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header {% if won %}bg-success{% else %}bg-danger{% endif %} text-white">
+                    <h2 class="mb-0">Game Over</h2>
+                </div>
+                <div class="card-body text-center">
+                    {% if won %}
+                        <h3 class="text-success mb-4">Congratulations!</h3>
+                        <p class="lead">You correctly guessed the movie in {{ attempts_used }} attempts!</p>
+                    {% else %}
+                        <h3 class="text-danger mb-4">Game Over!</h3>
+                        <p class="lead">You ran out of attempts. The movie was:</p>
+                    {% endif %}
+
+                    <div class="movie-info mt-4">
+                        <h4>{{ movie.title }}</h4>
+                        <p>Released: {{ movie.release_date }}</p>
+                        <p>Genre: {{ movie.genre }}</p>
+                        <p>IMDb Rating: {{ movie.imdb_rating }}</p>
+                    </div>
+
+                    <div class="mt-4">
+                        <a href="{% url 'choose_movie' %}" class="btn btn-primary">Play Again</a>
+                        <a href="{% url 'index' %}" class="btn btn-secondary">Back to Home</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,69 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h2 class="mb-0">Guesser's Turn</h2>
+                </div>
+                <div class="card-body">
+                    <div class="mb-4">
+                        <h4>Attempts Left: <span id="attempts-left">{{ attempts_left }}</span></h4>
+                    </div>
+
+                    <div id="trivia-container">
+                        {% if revealed_trivia %}
+                            <h4>Movie Trivia:</h4>
+                            <div class="list-group mb-4">
+                                {% for trivia in revealed_trivia %}
+                                    <div class="list-group-item">
+                                        <div class="d-flex w-100 justify-content-between">
+                                            <p class="mb-1">{{ trivia.fact }}</p>
+                                            <span class="badge {% if trivia.difficulty == 'E' %}badge-success{% elif trivia.difficulty == 'M' %}badge-warning{% else %}badge-danger{% endif %}">
+                                                {% if trivia.difficulty == 'E' %}Easy
+                                                {% elif trivia.difficulty == 'M' %}Medium
+                                                {% else %}Hard
+                                                {% endif %}
+                                            </span>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="alert alert-info">
+                                Make your first guess to reveal a trivia fact about the movie!
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    {% if not game_over %}
+                        <form id="guess-form" class="mb-4">
+                            {% csrf_token %}
+                            <div class="form-group">
+                                <label for="guess">Your Guess:</label>
+                                <input type="text" class="form-control" id="guess" name="guess" required 
+                                       placeholder="Enter the movie title...">
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-lg mt-3" id="submit-guess">Submit Guess</button>
+                        </form>
+                    {% endif %}
+
+                    <div id="message" class="alert" style="display: none;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascript %}
+<script>
+    // Define URLs for the JavaScript file
+    const guessUrl = '{% url "make_guess" %}';
+    const gameOverUrl = '{% url "game_over" %}';
+</script>
+<script src="{% static 'js/game.js' %}"></script>
+{% endblock %}

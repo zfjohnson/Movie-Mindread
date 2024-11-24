@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 {% extends 'trivia_game/base.html' %}
 {% load static %}
 
@@ -50,11 +51,46 @@
                     <button class="btn btn-secondary" onclick="cancelSelection()">
                         <i class="fas fa-times"></i> Cancel
                     </button>
+=======
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h2 class="mb-0">Chooser's Turn</h2>
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-4">
+                        <h3>Select a Movie</h3>
+                        <p class="lead">Choose a movie for the other player to guess. Once you select a movie, it will be the guesser's turn!</p>
+                    </div>
+                    
+                    <div class="list-group">
+                        {% for movie in movies %}
+                            <a href="{% url 'movie_info' movie.id %}" class="list-group-item list-group-item-action">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h5 class="mb-1">{{ movie.title }}</h5>
+                                    <small>{{ movie.release_date }}</small>
+                                </div>
+                                <p class="mb-1">{{ movie.genre }}</p>
+                                <small>IMDb Rating: {{ movie.imdb_rating }}</small>
+                            </a>
+                        {% empty %}
+                            <div class="alert alert-warning">
+                                No movies available in the database.
+                            </div>
+                        {% endfor %}
+                    </div>
+>>>>>>> sqlite-version
                 </div>
             </div>
         </div>
     </div>
 </div>
+<<<<<<< HEAD
 
 {% endblock %}
 
@@ -261,4 +297,6 @@ function getCookie(name) {
     margin-top: 1rem;
 }
 </style>
+=======
+>>>>>>> sqlite-version
 {% endblock %}
