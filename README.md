@@ -1,23 +1,24 @@
-# Movie Mindread 🎬
+# Movie Mindread - Interactive Movie Trivia Game
 
-A two-player movie trivia game where one player chooses a movie and the other tries to guess it through a series of trivia-based hints.
+A Django-based multiplayer movie guessing game where players test their movie knowledge through progressively revealing trivia facts.
 
-## Features 🌟
+## Features
 
-- Interactive movie search and selection
-- Multi-level trivia system (Easy, Medium, Hard)
-- Dynamic scoring based on trivia quality and remaining guesses
-- Real-time game state updates
+- Progressive difficulty levels (Hard → Medium → Easy)
+- Real-time movie data from IMDb
+- Multiplayer support
+- Dynamic trivia generation
+- Score tracking system
 - Comprehensive movie database
-- Beautiful, responsive UI
 
-## Prerequisites 📋
+## Prerequisites
 
 - Python 3.10 or higher
-- pip (Python package installer)
-- Virtual environment (recommended)
+- pip (Python package manager)
+- Git
+- SQLite3
 
-## Installation 🚀
+## Installation
 
 1. Clone the repository:
 ```bash
@@ -29,188 +30,103 @@ cd Movie-Mindread
 ```bash
 # Windows
 python -m venv venv
-venv\Scripts\activate
+.\venv\Scripts\activate
 
 # Linux/MacOS
 python3 -m venv venv
 source venv/bin/activate
 ```
 
-3. Install dependencies:
+3. Install required packages:
 ```bash
 pip install -r requirements.txt
 ```
 
-4. Configure the database:
+4. Set up the database:
 ```bash
-python manage.py makemigrations
 python manage.py migrate
 ```
 
-5. Create a superuser (for admin access):
+5. Load initial movie data:
 ```bash
-python manage.py createsuperuser
+python manage.py fetch_imdb_data
 ```
 
-6. Populate the database with sample data:
-```bash
-python manage.py populate_data
+## Configuration
+
+1. Create a `.env` file in the root directory with the following variables:
+```env
+SECRET_KEY=your_django_secret_key
+DEBUG=True
+ALLOWED_HOSTS=localhost,127.0.0.1
 ```
 
-## Running the Application 🎮
+2. Configure database settings in `movie_mindread/settings.py` if needed (SQLite is configured by default)
+
+## Running the Server
 
 1. Start the development server:
 ```bash
 python manage.py runserver
 ```
 
-2. Open your browser and navigate to:
-   - Game: http://localhost:8000/trivia_game/
-   - Admin interface: http://localhost:8000/admin/
+2. Access the application at `http://localhost:8000`
 
-## How to Play 🎲
+## Game Rules
 
-### Player 1 (Movie Chooser):
-1. Click "Choose a Movie" on the home page
-2. Use the search bar to find a movie
-3. Select a movie from the search results
-4. Confirm your selection
-5. Wait for Player 2 to make their guesses
+1. Each game consists of 9 trivia facts about a movie:
+   - 3 Hard difficulty facts
+   - 3 Medium difficulty facts
+   - 3 Easy difficulty facts
 
-### Player 2 (Guesser):
-1. Click "Guess the Movie" on the home page
-2. You have 9 attempts to guess the movie
-3. Each wrong guess reveals a new trivia fact
-4. Trivia facts get progressively more specific
-5. Try to guess the movie with as few attempts as possible
+2. Facts are revealed one at a time, starting with hard difficulty
+3. Players can guess the movie at any time
+4. Points are awarded based on:
+   - How quickly the correct guess is made
+   - How many trivia facts were revealed
+   - The difficulty level of revealed facts
 
-## Scoring System 💯
+## Project Structure
 
-- Base score starts at 1000 points
-- Score decreases with each guess
-- Multipliers based on:
-  * Number of guesses used (3x, 2x, 1x)
-  * Trivia quality (High: 1.5x, Medium: 1.2x, Low: 1.0x)
-- Bonus points for quick guesses
-- No points awarded after 9 guesses
+- `trivia_game/` - Main application directory
+  - `views.py` - Core game logic and views
+  - `models.py` - Database models
+  - `urls.py` - URL routing
+  - `templates/` - HTML templates
+  - `static/` - CSS, JavaScript, and images
+  - `management/commands/` - Custom management commands
+- `movie_mindread/` - Project settings directory
+- `requirements.txt` - Project dependencies
 
-## Database Structure 📊
 
-The game uses several interconnected models:
-- Movies
-- Directors
-- Studios
-- Actors
-- Genres
-- Trivia (Easy/Medium/Hard)
-
-## Development 🛠️
-
-### Project Structure
-```
-Movie-Mindread/
-├── manage.py
-├── requirements.txt
-├── README.md
-├── movie_mindread/
-│   ├── __init__.py
-│   ├── settings.py
-│   ├── urls.py
-│   └── wsgi.py
-└── trivia_game/
-    ├── management/
-    │   └── commands/
-    │       └── populate_data.py
-    ├── migrations/
-    ├── static/
-    ├── templates/
-    ├── __init__.py
-    ├── admin.py
-    ├── apps.py
-    ├── models.py
-    ├── urls.py
-    └── views.py
-```
-
-### Key Files
-- `settings.py`: Main Django configuration
-- `views.py`: Game logic and request handling
-- `models.py`: Database models
-- `populate_data.py`: Sample data generation
-
-## Testing 🧪
+## Testing
 
 Run the test suite:
 ```bash
 python manage.py test
 ```
 
-## Production Deployment 🚀
+## Troubleshooting
 
-For production deployment:
-1. Set `DEBUG = False` in settings.py
-2. Configure a production-ready database
-3. Set up static file serving
-4. Use a production web server (e.g., Gunicorn)
-5. Set up HTTPS
-6. Configure proper security settings
+1. Database Issues:
+   - Delete `db.sqlite3` and all migration files except `__init__.py`
+   - Run `python manage.py makemigrations`
+   - Run `python manage.py migrate`
+   - Run `python manage.py fetch_imdb_data`
 
-## Security Considerations 🔒
+2. Package Issues:
+   - Delete `venv` folder
+   - Create new virtual environment
+   - Reinstall requirements
 
-- CSRF protection enabled
-- SQL injection prevention
-- XSS protection
-- Secure session handling
-- Input validation
-- Error handling without exposing sensitive information
 
-## Contributing 🤝
+## Authors
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
+- Brayden Martin
+- Zachary Johnson
 
-## Troubleshooting 🔧
+## Acknowledgments
 
-### Common Issues:
-
-1. Database Migration Issues:
-```bash
-python manage.py migrate --run-syncdb
-```
-
-2. Static Files Not Loading:
-```bash
-python manage.py collectstatic
-```
-
-3. Permission Issues:
-- Check file permissions
-- Verify database user permissions
-
-4. Search Not Working:
-- Ensure database is populated
-- Check search query format
-
-## License 📄
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Acknowledgments 👏
-
+- IMDb for movie data
 - Django Framework
-- Bootstrap
-- Movie data contributors
-- Open source community
-
-## Support 💬
-
-For support:
-1. Check the documentation
-2. Search existing issues
-3. Create a new issue
-4. Contact the maintainers
-
----
-Made with ❤️ by [Your Name]
+- All contributors and testers
