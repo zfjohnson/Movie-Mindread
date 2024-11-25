@@ -14,4 +14,5 @@ urlpatterns = [
     path('manage/', views.manage_movies, name='manage_movies'),
     path('add/', views.add_movie, name='add_movie'),
     path('delete/<int:movie_id>/', views.delete_movie, name='delete_movie'),
+    path('edit/<int:movie_id>/', views.edit_movie, name='edit_movie'),
 ]

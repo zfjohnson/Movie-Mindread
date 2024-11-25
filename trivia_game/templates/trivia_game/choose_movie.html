@@ -13,12 +13,29 @@
                         <h3>Select a Movie</h3>
                         <p class="lead">Choose a movie for the other player to guess. Once you select a movie, it will be the guesser's turn!</p>
                     </div>
-                    
+                    <div class=" mb-4">
+                        <div class = "buttons">
+                            <a href="{% url 'choose_movie' %}?sort=highest" class="btn btn-primary btn-md mt-2 me-4">Sort by rating - descending</a>
+                            <a href="{% url 'choose_movie' %}?sort=lowest" class="btn btn-primary btn-md mt-2 me-4">Sort by rating - ascending</aside></a>
+                            <a href="{% url 'choose_movie' %}" class="btn btn-primary btn-md mt-2">Sort alphabetically</a>
+                        </div>
+                    </div>
+                    <!-- Search Bar -->
+                    <div class="mb-4">
+                        
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="fas fa-search"></i>
+                            </span>
+                            <input type="text" id="movieSearch" class="form-control" placeholder="Search movies by title...">
+                        </div>
+                    </div>
+                        
                     <div class="list-group">
                         {% for movie in movies %}
-                            <a href="{% url 'movie_info' movie.id %}" class="list-group-item list-group-item-action">
+                            <a href="{% url 'movie_info' movie.id %}" class="list-group-item list-group-item-action movie-item">
                                 <div class="d-flex w-100 justify-content-between">
-                                    <h5 class="mb-1">{{ movie.title }}</h5>
+                                    <h5 class="mb-1 movie-title">{{ movie.title }}</h5>
                                     <small>{{ movie.release_date }}</small>
                                 </div>
                                 <p class="mb-1">{{ movie.genre }}</p>
@@ -35,4 +52,29 @@
         </div>
     </div>
 </div>
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    let isSubmitting = false;
+    
+    // Search functionality
+    const searchInput = document.getElementById('movieSearch');
+    const movieItems = document.querySelectorAll('.movie-item');
+    const movieList = document.querySelector('.list-group');
+
+    searchInput.addEventListener('input', function(e) {
+        const searchTerm = e.target.value.toLowerCase();
+        
+        movieItems.forEach(item => {
+            const title = item.querySelector('.movie-title').textContent.toLowerCase();
+            if (title.includes(searchTerm)) {
+                item.style.display = '';
+            } else {
+                item.style.display = 'none';
+            }
+        });
+    });
+});
+</script>
+{% endblock %}
 {% endblock %}

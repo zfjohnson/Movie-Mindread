@@ -95,8 +95,15 @@ def choose_movie(request):
     # Clear any existing game state
     if 'game_state' in request.session:
         del request.session['game_state']
+    
+    sort_by = request.GET.get('sort')
+    if sort_by == 'highest':
+        movies = Movie.objects.all().order_by('-imdb_rating', 'title')
+    elif sort_by == 'lowest':
+        movies = Movie.objects.all().order_by('imdb_rating', 'title')
+    else:
+        movies = Movie.objects.all().order_by('title')
         
-    movies = Movie.objects.all().order_by('title')
     return render(request, "trivia_game/choose_movie.html", {
         'movies': movies,
         'phase': 'chooser'
@@ -108,6 +115,33 @@ def movie_info(request, movie_id):
         'movie': movie
     })
 
+def edit_movie(request, movie_id):
+    """Edit an existing movie"""
+    movie = get_object_or_404(Movie, pk=movie_id)
+    
+    if request.method == 'POST':
+        # Update movie details
+        movie.title = request.POST.get('title')
+        movie.release_date = request.POST.get('release_date')
+        movie.genre = request.POST.get('genre')
+        movie.imdb_rating = request.POST.get('imdb_rating')
+        
+        # Get or create director
+        director_name = request.POST.get('director')
+        director, created = Director.objects.get_or_create(name=director_name)
+        movie.director = director
+        
+        # Get or create studio
+        studio_name = request.POST.get('studio')
+        studio, created = Studio.objects.get_or_create(name=studio_name)
+        movie.studio = studio
+        
+        movie.save()
+        return redirect('manage_movies')
+    
+    return render(request, "trivia_game/edit_movie.html", {
+        'movie': movie
+    })
 
 def start_game(request, movie_id):
     """Transition from chooser to guesser phase"""
@@ -149,7 +183,7 @@ def play_game(request):
     for trivia_id in game_state['revealed_trivia']:
         trivia = get_object_or_404(Trivia, pk=trivia_id)
         revealed_trivia.append(trivia)
-    
+
     # Calculate progress percentage
     progress_percentage = int((game_state['attempts_left'] / 9) * 100)
     
@@ -180,7 +214,7 @@ def make_guess(request):
         
         # Check if the guess is correct (case-insensitive)
         is_correct = guess.lower() == movie.title.lower()
-        
+        game_state['attempts_left'] -= 1
         if is_correct:
             game_state['game_over'] = True
             game_state['won'] = True
@@ -191,8 +225,6 @@ def make_guess(request):
                 'movie_title': movie.title
             })
         
-        # Handle incorrect guess
-        game_state['attempts_left'] -= 1
         request.session.modified = True
         
         # Check if game is over due to no more attempts

@@ -1,3 +1,6 @@
+#----------------------------------------------
+#  Usage: python DBconnector.py [create|drop] 
+#----------------------------------------------
 import mysql.connector
 import sys
 from mysql.connector import errorcode
@@ -20,10 +23,10 @@ else:
     cursorObject = database.cursor()
     if sys.argv[1]:
         if sys.argv[1] == "create":
-            cursorObject.execute("CREATE DATABASE movie_mindread;")
+            cursorObject.execute("CREATE DATABASE IF NOT EXISTS movie_mindread;")
+            print("Database created")
         elif sys.argv[1] == "drop":
             cursorObject.execute("DROP DATABASE IF EXISTS movie_mindread;")
-
-    rows = cursorObject.fetchall()
-    for row in rows:
-        print(row)
+            print("Database dropped")
+    else:
+        print("Invalid argument. Usage: python DBconnector.py [create|drop]")
