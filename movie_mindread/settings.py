@@ -59,12 +59,8 @@ WSGI_APPLICATION = 'movie_mindread.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'movie_mindread',
-        'USER': 'moviemindread',
-        'PASSWORD': 'MovieMind123!',
-        'HOST': 'localhost',
-        'PORT': '3306',
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
 
