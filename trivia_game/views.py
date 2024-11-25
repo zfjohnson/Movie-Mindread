@@ -7,6 +7,31 @@ from django.db.models import Q
 import random
 import json
 
+class TriviaQuality:
+    """Tracks the quality and source of generated trivia facts.
+    
+    Quality Levels:
+    - HIGH (3): Database-sourced trivia facts
+    - MEDIUM (2): Direct movie attributes (director, year, etc.)
+    - LOW (1): Fallback or generic trivia
+    """
+    HIGH = 3    # Database trivia
+    MEDIUM = 2  # Direct movie attributes
+    LOW = 1     # Fallback/generic trivia
+
+class TriviaResult:
+    """Encapsulates a trivia fact with its metadata.
+    
+    Attributes:
+        fact (str): The actual trivia text
+        quality (TriviaQuality): Quality level of the trivia
+        source (str): Source of the trivia (database, actor, director, etc.)
+    """
+    def __init__(self, fact, quality, source):
+        self.fact = fact
+        self.quality = quality
+        self.source = source
+
 def index(request):
     # Clear any existing game state
     if 'game_state' in request.session:
@@ -144,53 +169,55 @@ def edit_movie(request, movie_id):
     })
 
 def start_game(request, movie_id):
-    """Transition from chooser to guesser phase"""
-    movie = get_object_or_404(Movie, pk=movie_id)
-    
-    # Get all trivia for the movie and sort by difficulty
-    trivia_facts = list(Trivia.objects.filter(movie=movie))
-    
-    # Shuffle trivia within each difficulty level
-    easy_trivia = [t for t in trivia_facts if t.difficulty == 'E']
-    medium_trivia = [t for t in trivia_facts if t.difficulty == 'M']
-    hard_trivia = [t for t in trivia_facts if t.difficulty == 'H']
-    
-    random.shuffle(easy_trivia)
-    random.shuffle(medium_trivia)
-    random.shuffle(hard_trivia)
-    
-    # Store game state in session
-    request.session['game_state'] = {
-        'movie_id': movie_id,
-        'attempts_left': 9,
-        'revealed_trivia': [],
-        'available_trivia': [t.id for t in hard_trivia + medium_trivia + easy_trivia],
-        'game_over': False,
-        'phase': 'guesser'
-    }
-    
-    return redirect('play_game')
+    """Initialize a new game session."""
+    try:
+        movie = get_object_or_404(Movie, pk=movie_id)
+        
+        # Initialize game state
+        game_state = {
+            'movie_id': movie_id,
+            'attempts_left': 9,
+            'revealed_trivia': [],
+            'won': False,
+            'score': 0,
+            'phase': 'guesser',
+            'num_guesses': 0  # Start with 0 guesses
+        }
+        
+        # Generate first trivia hint without counting it as a guess
+        trivia_result = generate_hard_trivia(movie)  # Always start with a hard fact
+        game_state['revealed_trivia'].append({
+            'trivia_fact': trivia_result.fact,
+            'difficulty': 'H',  # First hint is always hard
+            'quality': trivia_result.quality
+        })
+        
+        request.session['game_state'] = game_state
+        
+        # Redirect to play_game view
+        return redirect('play_game')
+        
+    except Exception as e:
+        print(f"Error in start_game: {str(e)}")
+        return JsonResponse({'error': 'An error occurred'}, status=500)
 
 def play_game(request):
     """Second phase: Guesser tries to identify the movie"""
     game_state = request.session.get('game_state')
     
-    if not game_state or game_state.get('phase') != 'guesser':
+    if not game_state:
         return redirect('choose_movie')
     
-    # Get the current trivia facts that have been revealed
-    revealed_trivia = []
-    for trivia_id in game_state['revealed_trivia']:
-        trivia = get_object_or_404(Trivia, pk=trivia_id)
-        revealed_trivia.append(trivia)
-
+    # Get the movie object
+    movie = get_object_or_404(Movie, pk=game_state['movie_id'])
+    
     # Calculate progress percentage
     progress_percentage = int((game_state['attempts_left'] / 9) * 100)
     
     return render(request, "trivia_game/play_game.html", {
         'attempts_left': game_state['attempts_left'],
-        'revealed_trivia': revealed_trivia,
-        'game_over': game_state['game_over'],
+        'revealed_trivia': game_state.get('revealed_trivia', []),
+        'game_over': game_state.get('game_over', False),
         'progress_percentage': progress_percentage
     })
 
@@ -212,43 +239,74 @@ def make_guess(request):
         # Get the correct movie
         movie = get_object_or_404(Movie, pk=game_state['movie_id'])
         
+        # Initialize num_guesses if it doesn't exist
+        if 'num_guesses' not in game_state:
+            game_state['num_guesses'] = 0
+            
+        # Initialize revealed_trivia if it doesn't exist
+        if 'revealed_trivia' not in game_state:
+            game_state['revealed_trivia'] = []
+        
+        print(f"Current state - Attempts left: {game_state['attempts_left']}, Guesses made: {game_state['num_guesses']}")
+        
+        # Generate new trivia based on current number of guesses
+        trivia_result = generate_trivia(movie, game_state['num_guesses'])
+        print(f"Generated trivia: {trivia_result.fact}")
+        
         # Check if the guess is correct (case-insensitive)
         is_correct = guess.lower() == movie.title.lower()
-        game_state['attempts_left'] -= 1
+        
         if is_correct:
+            score = calculate_score(movie, game_state['num_guesses'], trivia_result.quality)
             game_state['game_over'] = True
             game_state['won'] = True
+            game_state['score'] = score
             request.session.modified = True
             return JsonResponse({
                 'correct': True,
                 'message': f'Congratulations! You correctly guessed the movie: {movie.title}',
-                'movie_title': movie.title
+                'movie_title': movie.title,
+                'score': score
             })
+        
+        # Handle incorrect guess
+        game_state['attempts_left'] -= 1
+        
+        # Add new trivia fact with proper difficulty based on number of guesses
+        difficulty = 'H' if game_state['num_guesses'] < 2 else ('M' if game_state['num_guesses'] < 5 else 'E')
+        print(f"Adding trivia with difficulty: {difficulty} (guess #{game_state['num_guesses']})")
+        
+        game_state['revealed_trivia'].append({
+            'trivia_fact': trivia_result.fact,
+            'difficulty': difficulty,
+            'quality': trivia_result.quality
+        })
+        
+        # Increment number of guesses AFTER adding trivia
+        game_state['num_guesses'] += 1
         
         request.session.modified = True
         
         # Check if game is over due to no more attempts
         if game_state['attempts_left'] <= 0:
             game_state['game_over'] = True
+            game_state['won'] = False
+            game_state['score'] = 0
             return JsonResponse({
                 'correct': False,
                 'game_over': True,
                 'movie_title': movie.title,
                 'attempts_left': 0,
-                'progress_percentage': 0
+                'progress_percentage': 0,
+                'new_trivia': trivia_result.fact
             })
-        
-        # Reveal new trivia if available
-        if len(game_state.get('revealed_trivia', [])) < len(game_state.get('available_trivia', [])):
-            next_trivia_id = game_state['available_trivia'][len(game_state['revealed_trivia'])]
-            game_state['revealed_trivia'].append(next_trivia_id)
-            request.session.modified = True
         
         return JsonResponse({
             'correct': False,
             'game_over': False,
             'attempts_left': game_state['attempts_left'],
-            'progress_percentage': int((game_state['attempts_left'] / 9) * 100)
+            'progress_percentage': int((game_state['attempts_left'] / 9) * 100),
+            'new_trivia': trivia_result.fact
         })
         
     except Exception as e:
@@ -272,3 +330,379 @@ def game_over(request):
         'movie': movie,
         'attempts_used': 9 - game_state['attempts_left']
     })
+
+
+def generate_trivia(movie, num_guesses):
+    """Generate trivia for a movie based on the number of guesses.
+    
+    Args:
+        movie (Movie): The movie object to generate trivia for
+        num_guesses (int): Number of guesses made so far
+        
+    Returns:
+        TriviaResult: A trivia fact with metadata about its quality
+    """
+    try:
+        # Validate inputs
+        if not movie:
+            return TriviaResult("Error: No movie provided", TriviaQuality.LOW, "error")
+        if not isinstance(num_guesses, int) or num_guesses < 0 or num_guesses > 9:
+            return TriviaResult("Error: Invalid number of guesses", TriviaQuality.LOW, "error")
+
+        # Define difficulty levels based on number of revealed facts
+        print(f"Generating trivia for guess #{num_guesses + 1}")
+        
+        # First 2 guesses (0, 1) get hard facts
+        if num_guesses < 2:
+            print("Generating HARD trivia")
+            return generate_hard_trivia(movie)
+            
+        # Next 3 guesses (2, 3, 4) get medium facts
+        elif num_guesses < 5:
+            print("Generating MEDIUM trivia")
+            return generate_medium_trivia(movie)
+            
+        # Last 3 guesses (5, 6, 7, 8) get easy facts
+        else:
+            print("Generating EASY trivia")
+            return generate_easy_trivia(movie)
+            
+    except Exception as e:
+        print(f"Error in generate_trivia: {str(e)}")
+        return TriviaResult("An unexpected error occurred while generating trivia", 
+                          TriviaQuality.LOW, "error")
+
+def generate_hard_trivia(movie):
+    """Generate hard difficulty trivia.
+    
+    Returns:
+        TriviaResult: A trivia fact with metadata about its quality
+    """
+    try:
+        print(f"Generating hard trivia for movie: {movie.title}")
+        
+        # Try to get a hard trivia fact from database first
+        hard_trivia = Trivia.objects.filter(movie=movie).order_by('?').first()
+        if hard_trivia:
+            print(f"Found database trivia: {hard_trivia.trivia_fact}")
+            return TriviaResult(hard_trivia.trivia_fact, TriviaQuality.HIGH, "database")
+
+        # Create a list of potential hard facts
+        hard_facts = []
+        
+        # 1. Actor fact (combine all main actors)
+        try:
+            actors = movie.actors.all()[:3]  # Limit to 3 main actors
+            if actors:
+                actor_names = ', '.join(actor.name for actor in actors)
+                hard_facts.append({
+                    'fact': f"This movie stars {actor_names}",
+                    'quality': TriviaQuality.MEDIUM,
+                    'source': 'actors'
+                })
+        except Exception as e:
+            print(f"Error getting actors: {str(e)}")
+        
+        # 2. Studio fact
+        try:
+            if movie.studio:
+                hard_facts.append({
+                    'fact': f"This movie was produced by {movie.studio.name}",
+                    'quality': TriviaQuality.MEDIUM,
+                    'source': 'studio'
+                })
+        except Exception as e:
+            print(f"Error getting studio: {str(e)}")
+        
+        # 3. IMDB rating fact
+        if hasattr(movie, 'imdb_rating') and movie.imdb_rating:
+            hard_facts.append({
+                'fact': f"This movie has an IMDB rating of {movie.imdb_rating}",
+                'quality': TriviaQuality.MEDIUM,
+                'source': 'rating'
+            })
+        
+        # If we have hard facts, randomly choose one
+        if hard_facts:
+            print(f"Found {len(hard_facts)} hard facts, selecting one randomly")
+            chosen = random.choice(hard_facts)
+            return TriviaResult(chosen['fact'], chosen['quality'], chosen['source'])
+        
+        # Fallback to a basic hard fact
+        print("No specific hard facts found, using fallback")
+        return TriviaResult(
+            f"This movie was released in {movie.release_date}",
+            TriviaQuality.LOW,
+            "fallback"
+        )
+        
+    except Exception as e:
+        print(f"Error in generate_hard_trivia: {str(e)}")
+        return TriviaResult(
+            "Unable to generate hard trivia at this time",
+            TriviaQuality.LOW,
+            "error"
+        )
+
+def generate_medium_trivia(movie):
+    """Generate medium difficulty trivia.
+    
+    Returns:
+        TriviaResult: A trivia fact with metadata about its quality
+    """
+    try:
+        print(f"Generating medium trivia for movie: {movie.title}")
+        
+        # Try to get a medium trivia fact from database first
+        medium_trivia = Trivia.objects.filter(movie=movie).order_by('?').first()
+        if medium_trivia:
+            print(f"Found database trivia: {medium_trivia.trivia_fact}")
+            return TriviaResult(medium_trivia.trivia_fact, TriviaQuality.HIGH, "database")
+
+        # Prepare fallback facts
+        fallback_facts = []
+        
+        # Try to get director info
+        try:
+            print("Trying to get director...")
+            if movie.director:
+                print(f"Found director: {movie.director.name}")
+                fallback_facts.append(
+                    {'fact': f"This movie was directed by {movie.director.name}",
+                     'source': 'director',
+                     'quality': TriviaQuality.MEDIUM
+                    }
+                )
+        except Exception as e:
+            print(f"Error getting director: {str(e)}")
+            
+        # Try to get year info
+        try:
+            print("Trying to get release date...")
+            if movie.release_date:
+                print(f"Found release date: {movie.release_date}")
+                fallback_facts.append(
+                    {'fact': f"This movie was released in {movie.release_date}",
+                     'source': 'year',
+                     'quality': TriviaQuality.MEDIUM
+                    }
+                )
+        except Exception as e:
+            print(f"Error getting release date: {str(e)}")
+            
+        if fallback_facts:
+            print(f"Found {len(fallback_facts)} fallback facts")
+            chosen = random.choice(fallback_facts)
+            return TriviaResult(chosen['fact'], chosen['quality'], chosen['source'])
+            
+        # Ultimate fallback
+        print("No facts found, using generic fallback")
+        return TriviaResult("This is a moderately challenging movie to guess",
+                          TriviaQuality.LOW, "generic")
+        
+    except Exception as e:
+        print(f"Error in generate_medium_trivia: {str(e)}")
+        return TriviaResult("Unable to generate medium trivia at this time",
+                          TriviaQuality.LOW, "error")
+
+def generate_easy_trivia(movie):
+    """Generate easy difficulty trivia.
+    
+    Returns:
+        TriviaResult: A trivia fact with metadata about its quality
+    """
+    try:
+        print(f"Generating easy trivia for movie: {movie.title}")
+        
+        # Try to get an easy trivia fact from database first
+        easy_trivia = Trivia.objects.filter(movie=movie).order_by('?').first()
+        if easy_trivia:
+            print(f"Found database trivia: {easy_trivia.trivia_fact}")
+            return TriviaResult(easy_trivia.trivia_fact, TriviaQuality.HIGH, "database")
+
+        # Fallback to genre facts
+        genre_facts = []
+        
+        try:
+            print("Trying to get genre...")
+            if movie.genre:
+                print(f"Found genre: {movie.genre}")
+                genre_facts.append(
+                    {'fact': f"This movie's genre is {movie.genre}", 
+                     'source': 'genre',
+                     'quality': TriviaQuality.MEDIUM
+                    }
+                )
+        except Exception as e:
+            print(f"Error getting genre: {str(e)}")
+            
+        if genre_facts:
+            print(f"Found {len(genre_facts)} genre facts")
+            chosen = random.choice(genre_facts)
+            return TriviaResult(chosen['fact'], chosen['quality'], chosen['source'])
+            
+        # Ultimate fallback
+        print("No facts found, using generic fallback")
+        return TriviaResult("This should be an easy movie to guess",
+                          TriviaQuality.LOW, "generic")
+        
+    except Exception as e:
+        print(f"Error in generate_easy_trivia: {str(e)}")
+        return TriviaResult("Unable to generate easy trivia at this time",
+                          TriviaQuality.LOW, "error")
+
+def calculate_score_multiplier(trivia_quality, num_guesses):
+    """Calculate score multiplier based on trivia quality and guess number.
+    
+    Args:
+        trivia_quality (TriviaQuality): Quality level of the trivia
+        num_guesses (int): Number of guesses made so far
+        
+    Returns:
+        float: Score multiplier
+    """
+    # Base multiplier from difficulty level
+    base_multiplier = 3 if num_guesses < 3 else (2 if num_guesses < 6 else 1)
+    
+    # Quality adjustment
+    quality_multiplier = {
+        TriviaQuality.HIGH: 1.2,    # Bonus for database trivia
+        TriviaQuality.MEDIUM: 1.0,  # Standard for direct attributes
+        TriviaQuality.LOW: 0.8      # Penalty for fallback trivia
+    }.get(trivia_quality, 1.0)
+    
+    return base_multiplier * quality_multiplier
+
+def calculate_score(movie, num_guesses, trivia_quality=TriviaQuality.MEDIUM):
+    """Calculate score based on remaining guesses and trivia quality.
+    
+    Args:
+        movie (Movie): The movie object
+        num_guesses (int): Number of guesses made so far
+        trivia_quality (TriviaQuality): Quality level of the trivia
+        
+    Returns:
+        int: Score
+    """
+    try:
+        remaining_guesses = 9 - num_guesses
+        if remaining_guesses <= 0:
+            return 0
+            
+        # Base points for each difficulty level
+        base_points = {
+            'easy': 5,    # Guesses 7-9
+            'medium': 10, # Guesses 4-6
+            'hard': 15    # Guesses 1-3
+        }
+        
+        # Calculate points for each remaining guess
+        easy_remaining = min(max(0, remaining_guesses - 6), 3) * base_points['easy']
+        medium_remaining = min(max(0, remaining_guesses - 3), 3) * base_points['medium']
+        hard_remaining = min(remaining_guesses, 3) * base_points['hard']
+        
+        # Calculate base score
+        base_score = easy_remaining + medium_remaining + hard_remaining
+        
+        # Apply quality multiplier
+        quality_multiplier = {
+            TriviaQuality.HIGH: 1.2,   # 20% bonus for high-quality trivia
+            TriviaQuality.MEDIUM: 1.0,  # Standard score for medium quality
+            TriviaQuality.LOW: 0.8      # 20% penalty for low-quality trivia
+        }.get(trivia_quality, 1.0)
+        
+        return int(base_score * quality_multiplier)
+        
+    except Exception as e:
+        return 0
+
+def get_trivia_facts(movie):
+    """
+    Generate trivia facts for a movie.
+    """
+    facts = []
+    
+    print(f"\nGenerating trivia facts for movie: {movie.title}")
+    
+    hard_fact_options = []
+    
+    # Actor fact
+    if movie.actors.exists():
+        actor_names = ', '.join([actor.name for actor in movie.actors.all()[:3]])
+        hard_fact_options.append({
+            'text': f"The movie stars {actor_names}", 
+            'difficulty': 'hard'
+        })
+    
+    # IMDB rating fact
+    hard_fact_options.append({
+        'text': f"This movie has an IMDB rating of {movie.imdb_rating}", 
+        'difficulty': 'hard'
+    })
+    
+    # Studio fact
+    if movie.studio:
+        hard_fact_options.append({
+            'text': f"This movie was produced by {movie.studio.name}", 
+            'difficulty': 'hard'
+        })
+    
+    print(f"Total hard facts available: {len(hard_fact_options)}")
+    # Always take exactly 3 hard facts or all available if less than 3
+    hard_facts = random.sample(hard_fact_options, min(3, len(hard_fact_options)))
+    print(f"Selected hard facts: {len(hard_facts)}")
+    for fact in hard_facts:
+        print(f"- {fact['text']}")
+    
+    # Add medium facts (pick 3 max)
+    medium_fact_options = []
+    
+    # Director fact
+    if movie.director:
+        medium_fact_options.append({
+            'text': f"The director is {movie.director.name}", 
+            'difficulty': 'medium'
+        })
+    
+    # Genre fact
+    medium_fact_options.append({
+        'text': f"The movie's genre is {movie.genre}", 
+        'difficulty': 'medium'
+    })
+    
+    # Release date fact
+    medium_fact_options.append({
+        'text': f"This movie was released in {movie.release_date}", 
+        'difficulty': 'medium'
+    })
+    
+    print(f"\nTotal medium facts available: {len(medium_fact_options)}")
+    # Always take exactly 3 medium facts or all available if less than 3
+    medium_facts = random.sample(medium_fact_options, min(3, len(medium_fact_options)))
+    print(f"Selected medium facts: {len(medium_facts)}")
+    for fact in medium_facts:
+        print(f"- {fact['text']}")
+    
+    # Add easy facts (pick 3 max)
+    easy_fact_options = [
+        {'text': f"This is a {movie.genre} movie", 'difficulty': 'easy'},
+        {'text': f"The movie was made in the {str(movie.release_date)[:3]}0s", 'difficulty': 'easy'},
+    ]
+    
+    print(f"\nTotal easy facts available: {len(easy_fact_options)}")
+    print("Easy facts:")
+    for fact in easy_fact_options:
+        print(f"- {fact['text']}")
+    
+    # Clear the facts list and add exactly what we want
+    facts = []
+    facts.extend(hard_facts[:3])    # Ensure exactly 3 hard facts
+    facts.extend(medium_facts[:3])  # Ensure exactly 3 medium facts
+    facts.extend(easy_fact_options[:3])  # Ensure exactly 3 easy facts
+    
+    print(f"\nTotal facts added: {len(facts)}")
+    print("Final facts list:")
+    for i, fact in enumerate(facts):
+        print(f"{i+1}. ({fact['difficulty']}) {fact['text']}")
+    
+    return facts
