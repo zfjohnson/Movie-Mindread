@@ -133,6 +133,11 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
+    // Function to add delete listener to a button
+    function addDeleteListener(button) {
+        button.addEventListener('click', (e) => handleDelete(e, button));
+    }
+    
     // Add movie form submission
     const addMovieForm = document.getElementById('addMovieForm');
     const submitButton = document.getElementById('submitMovie');
@@ -174,13 +179,16 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <span class="badge bg-warning text-dark">Rating: ${data.movie.imdb_rating}/10</span>
                             </p>
                             <small>
-                                Director: ${data.movie.director} | 
-                                Studio: ${data.movie.studio}
+                                Director: ${data.movie.director || 'Unknown'} | 
+                                Studio: ${data.movie.studio || 'Unknown'}
                             </small>
                         </div>
                         <div class="btn-group">
                             <a href="/trivia/info/${data.movie.id}/" class="btn btn-sm btn-outline-primary">
                                 <i class="fas fa-info-circle"></i>
+                            </a>
+                            <a href="/trivia/edit/${data.movie.id}/" class="btn btn-sm btn-outline-secondary">
+                                <i class="fas fa-edit"></i>
                             </a>
                             <button class="btn btn-sm btn-outline-danger delete-movie" data-movie-id="${data.movie.id}">
                                 <i class="fas fa-trash"></i>
