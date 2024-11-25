@@ -1,66 +1,9 @@
-<<<<<<< HEAD
-=======
 {% load static %}
->>>>>>> sqlite-version
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<<<<<<< HEAD
-    <title>{% block title %}Movie Mindread{% endblock %}</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        body {
-            background-color: #1a1a1a;
-            color: #ffffff;
-            min-height: 100vh;
-        }
-        .game-container {
-            max-width: 800px;
-            margin: 2rem auto;
-            padding: 2rem;
-            background-color: #2d2d2d;
-            border-radius: 15px;
-            box-shadow: 0 0 20px rgba(0,0,0,0.3);
-        }
-        .movie-card {
-            background-color: #3d3d3d;
-            border: none;
-            margin-bottom: 1rem;
-            transition: transform 0.2s;
-        }
-        .movie-card:hover {
-            transform: translateY(-5px);
-            cursor: pointer;
-        }
-        .trivia-box {
-            background-color: #3d3d3d;
-            padding: 1.5rem;
-            border-radius: 10px;
-            margin-bottom: 1rem;
-        }
-        .guess-input {
-            background-color: #4d4d4d;
-            border: 1px solid #666;
-            color: #fff;
-        }
-        .guess-input:focus {
-            background-color: #5d5d5d;
-            color: #fff;
-            border-color: #007bff;
-        }
-        .btn-primary {
-            background-color: #007bff;
-            border: none;
-        }
-        .btn-primary:hover {
-            background-color: #0056b3;
-        }
-        .score-display {
-            font-size: 1.5rem;
-            color: #ffd700;
-=======
     <title>Movie Mind-Read - Movie Trivia Game</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
@@ -90,26 +33,10 @@
         .navbar-brand {
             font-size: 1.5rem;
             font-weight: bold;
->>>>>>> sqlite-version
         }
     </style>
 </head>
 <body>
-<<<<<<< HEAD
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-        <div class="container">
-            <a class="navbar-brand" href="{% url 'trivia_game:index' %}">Movie Mindread</a>
-        </div>
-    </nav>
-
-    <div class="container">
-        {% block content %}
-        {% endblock %}
-    </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    {% block scripts %}
-=======
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
         <div class="container">
             <a class="navbar-brand" href="{% url 'index' %}">Movie Mind-Read</a>
@@ -138,7 +65,6 @@
     {% block extra_js %}
     {% endblock %}
     {% block javascript %}
->>>>>>> sqlite-version
     {% endblock %}
 </body>
 </html>

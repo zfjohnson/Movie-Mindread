@@ -19,7 +19,8 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 import random
-from .models import Movie, Actor, Studio, Director, EasyTrivia, MediumTrivia, HardTrivia
+from .models import Movie, Actor, Studio, Director, Trivia
+from django.urls import reverse
 
 class TriviaQuality:
     """Tracks the quality and source of generated trivia facts.
@@ -47,38 +48,83 @@ class TriviaResult:
         self.source = source
 
 def index(request):
-    """Game entry point view.
+    """Main landing page view."""
+    # Clear any existing game state
+    request.session.pop('game_active', None)
+    request.session.pop('current_movie_id', None)
+    request.session.pop('attempts', None)
+    request.session.pop('revealed_trivia', None)
     
-    Resets game state and displays the initial game page where players
-    choose their roles (movie chooser or guesser).
-    """
-    try:
-        request.session.flush()  # Clear all session data
-        request.session['num_guesses'] = 0
-        request.session['chosen_movie_id'] = None
-        request.session['guesses'] = []
-        return render(request, "trivia_game/index.html")
-    except Exception as e:
-        messages.error(request, 'Error resetting game state. Please try again.')
-        return render(request, "trivia_game/index.html", status=500)
+    return render(request, "trivia_game/index.html")
 
-@ensure_csrf_cookie
 def choose_movie(request):
-    """Movie selection view for the chooser.
+    """
+    Movie selection view for the chooser.
+    """
+    # Clear any existing game state
+    request.session.pop('game_active', None)
+    request.session.pop('current_movie_id', None)
+    request.session.pop('attempts', None)
+    request.session.pop('revealed_trivia', None)
     
-    Displays the movie search interface where the choosing player can
-    search for and select a movie for the game.
+    # Get all movies
+    movies = Movie.objects.all().select_related('director').order_by('title')
+    
+    return render(request, "trivia_game/choose_movie.html", {'movies': movies})
+
+def start_game(request, movie_id):
+    """
+    Start the game with the selected movie.
     """
     try:
-        # Clear any existing game state
-        request.session['num_guesses'] = 0
-        request.session['guesses'] = []
-        return render(request, "trivia_game/choose_movie.html")
-    except Exception as e:
-        messages.error(request, 'Error loading movie selection. Please try again.')
-        return redirect('trivia_game:index')
+        movie = Movie.objects.get(pk=movie_id)
+        request.session['current_movie_id'] = movie.id
+        request.session['attempts'] = 0
+        request.session['game_active'] = True
+        request.session['revealed_trivia'] = []
+        
+        return redirect('trivia_game:play_game')
+    except Movie.DoesNotExist:
+        messages.error(request, "Selected movie not found.")
+        return redirect('trivia_game:choose_movie')
 
-@ensure_csrf_cookie
+def play_game(request):
+    """
+    Display the game interface.
+    """
+    if not request.session.get('game_active'):
+        messages.error(request, "Please select a movie to start the game.")
+        return redirect('trivia_game:choose_movie')
+    
+    movie_id = request.session.get('current_movie_id')
+    if not movie_id:
+        messages.error(request, "No movie selected. Please choose a movie first.")
+        return redirect('trivia_game:choose_movie')
+    
+    try:
+        movie = Movie.objects.get(pk=movie_id)
+        trivia_facts = get_trivia_facts(movie)
+        current_attempt = request.session.get('attempts', 0)
+        
+        # Only show trivia facts up to the current attempt
+        visible_facts = trivia_facts[:current_attempt + 1]
+        
+        context = {
+            'attempts': current_attempt,
+            'movie': movie,
+            'trivia_facts': visible_facts,
+            'game_state': {
+                'remaining_guesses': 9 - current_attempt,
+                'revealed_trivia': visible_facts,
+                'game_active': True
+            }
+        }
+        
+        return render(request, 'trivia_game/guess_movie.html', context)
+    except Movie.DoesNotExist:
+        messages.error(request, "Selected movie not found.")
+        return redirect('trivia_game:choose_movie')
+
 def guess_movie(request):
     """Movie guessing view for the guesser.
     
@@ -274,61 +320,65 @@ def make_guess(request):
     Returns:
         JsonResponse: Result of the guess (correct, incorrect, or game over)
     """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+    
+    guess = request.POST.get('guess', '').strip()
+    if not guess:
+        return JsonResponse({'error': 'No guess provided'}, status=400)
+    
+    # Limit guess length for security
+    guess = guess[:255]
+    
+    if not request.session.get('game_active'):
+        return JsonResponse({'error': 'No active game'}, status=400)
+    
+    movie_id = request.session.get('current_movie_id')
+    if not movie_id:
+        return JsonResponse({'error': 'No movie selected'}, status=400)
+    
+    current_attempt = request.session.get('attempts', 0)
+    if current_attempt >= 9:
+        request.session['was_correct'] = False
+        return JsonResponse({
+            'status': 'game_over',
+            'redirect': reverse('trivia_game:game_over')
+        })
+    
     try:
-        if request.method != 'POST':
-            return JsonResponse({'error': 'Method not allowed'}, status=405)
+        movie = Movie.objects.get(pk=movie_id)
         
-        guess = request.POST.get('guess', '').strip()
-        if not guess:
-            return JsonResponse({'error': 'No guess provided'}, status=400)
-            
-        # Limit guess length for security
-        guess = guess[:255]
+        # Store movie title for game over screen
+        request.session['movie_title'] = movie.title
         
-        num_guesses = request.session.get('num_guesses', 0)
-        chosen_movie_id = request.session.get('chosen_movie_id')
+        # Increment attempt counter
+        current_attempt += 1
+        request.session['attempts'] = current_attempt
         
-        if not chosen_movie_id:
-            return JsonResponse({'error': 'No movie chosen'}, status=400)
-            
-        try:
-            movie = Movie.objects.get(movie_id=chosen_movie_id)
-        except Movie.DoesNotExist:
-            return JsonResponse({'error': 'Chosen movie no longer exists'}, status=404)
-            
-        if num_guesses >= 9:
-            return JsonResponse({'error': 'Maximum guesses reached'}, status=400)
-            
-        num_guesses += 1
-        request.session['num_guesses'] = num_guesses
-        
-        # Store guess in session
-        guesses = request.session.get('guesses', [])
-        guesses.append({'number': num_guesses, 'text': guess})
-        request.session['guesses'] = guesses
-        
+        # Check if guess is correct
         if movie.title.lower() == guess.lower():
-            score = calculate_score(movie, num_guesses)
+            request.session['was_correct'] = True
             return JsonResponse({
                 'status': 'correct',
-                'score': score,
-                'num_guesses': num_guesses
+                'redirect': reverse('trivia_game:game_over')
             })
         
-        if num_guesses >= 9:
+        # Check if game is over
+        if current_attempt >= 9:
+            request.session['was_correct'] = False
             return JsonResponse({
                 'status': 'game_over',
-                'correct_movie': movie.title
+                'redirect': reverse('trivia_game:game_over')
             })
         
-        trivia_result = generate_trivia(movie, num_guesses)
+        # Return incorrect response
         return JsonResponse({
             'status': 'incorrect',
-            'trivia': trivia_result.fact,
-            'num_guesses': num_guesses,
-            'trivia_quality': trivia_result.quality,
-            'trivia_source': trivia_result.source
+            'num_guesses': current_attempt
         })
+        
+    except Movie.DoesNotExist:
+        return JsonResponse({'error': 'Selected movie not found'}, status=404)
     except Exception as e:
         return JsonResponse({'error': 'Error processing guess'}, status=500)
 
@@ -373,7 +423,7 @@ def generate_hard_trivia(movie):
     """
     try:
         # Try to get a hard trivia fact from database first
-        hard_trivia = HardTrivia.objects.filter(movie=movie).order_by('?').first()
+        hard_trivia = Trivia.objects.filter(movie=movie).order_by('?').first()
         if hard_trivia:
             return TriviaResult(hard_trivia.trivia_fact, TriviaQuality.HIGH, "database")
 
@@ -426,7 +476,7 @@ def generate_medium_trivia(movie):
     """
     try:
         # Try to get a medium trivia fact from database first
-        medium_trivia = MediumTrivia.objects.filter(movie=movie).order_by('?').first()
+        medium_trivia = Trivia.objects.filter(movie=movie).order_by('?').first()
         if medium_trivia:
             return TriviaResult(medium_trivia.trivia_fact, TriviaQuality.HIGH, "database")
 
@@ -473,7 +523,7 @@ def generate_easy_trivia(movie):
     """
     try:
         # Try to get an easy trivia fact from database first
-        easy_trivia = EasyTrivia.objects.filter(movie=movie).order_by('?').first()
+        easy_trivia = Trivia.objects.filter(movie=movie).order_by('?').first()
         if easy_trivia:
             return TriviaResult(easy_trivia.trivia_fact, TriviaQuality.HIGH, "database")
 
@@ -567,159 +617,114 @@ def calculate_score(movie, num_guesses, trivia_quality=TriviaQuality.MEDIUM):
     except Exception as e:
         return 0
 
-def start_game(request, movie_id):
-    """Transition from chooser to guesser phase"""
-    movie = get_object_or_404(Movie, pk=movie_id)
+def get_trivia_facts(movie):
+    """
+    Generate trivia facts for a movie.
+    """
+    facts = []
     
-    # Get all database trivia for the movie and sort by difficulty
-    db_trivia_facts = list(Trivia.objects.filter(movie=movie))
-    
-    # Generate additional trivia about movie details
-    movie_detail_trivia = generate_movie_trivia(movie)
-    
-    # Combine database trivia with movie detail trivia
-    all_trivia = []
-    
-    # Add database trivia
-    for t in db_trivia_facts:
-        all_trivia.append({
-            'id': t.id,
-            'fact': t.trivia_fact,
-            'difficulty': t.difficulty,
-            'is_db_trivia': True
-        })
-    
-    # Add movie detail trivia
-    for i, t in enumerate(movie_detail_trivia):
-        all_trivia.append({
-            'id': f'detail_{i}',
-            'fact': t['fact'],
-            'difficulty': t['difficulty'],
-            'is_db_trivia': False
-        })
-    
-    # Organize trivia by difficulty (exactly 3 of each)
-    hard_trivia = [t for t in all_trivia if t['difficulty'] == 'H'][:3]
-    medium_trivia = [t for t in all_trivia if t['difficulty'] == 'M'][:3]
-    easy_trivia = [t for t in all_trivia if t['difficulty'] == 'E'][:3]
-    
-    # Ensure we have exactly 3 of each difficulty
-    while len(hard_trivia) < 3:
-        hard_trivia.append({
-            'id': f'padding_hard_{len(hard_trivia)}',
-            'fact': f'This is a challenging movie to guess',
-            'difficulty': 'H',
-            'is_db_trivia': False
-        })
-    
-    while len(medium_trivia) < 3:
-        medium_trivia.append({
-            'id': f'padding_medium_{len(medium_trivia)}',
-            'fact': f'This movie has moderate recognition',
-            'difficulty': 'M',
-            'is_db_trivia': False
-        })
-    
-    while len(easy_trivia) < 3:
-        easy_trivia.append({
-            'id': f'padding_easy_{len(easy_trivia)}',
-            'fact': f'This movie exists in our database',
-            'difficulty': 'E',
-            'is_db_trivia': False
-        })
-    
-    # Shuffle within each difficulty level
-    random.shuffle(hard_trivia)
-    random.shuffle(medium_trivia)
-    random.shuffle(easy_trivia)
-    
-    # Combine all trivia in strict order (3 hard -> 3 medium -> 3 easy)
-    ordered_trivia = hard_trivia[:3] + medium_trivia[:3] + easy_trivia[:3]
-    
-    # Store game state in session
-    game_state = {
-        'movie_id': movie_id,
-        'attempts_left': 9,
-        'revealed_trivia': [ordered_trivia[0]],  # Start with first trivia revealed
-        'available_trivia': ordered_trivia,
-        'game_over': False,
-        'phase': 'guesser'
-    }
-    request.session['game_state'] = game_state
-    
-    return redirect('play_game')
-
-def generate_movie_trivia(movie):
-    """Generate trivia facts about movie details"""
+    # Add hard facts
     hard_facts = []
-    medium_facts = []
-    easy_facts = []
-    
-    # HARD facts
-    if movie.imdb_rating:
+    if movie.actors.exists():
+        actor_names = ', '.join([actor.name for actor in movie.actors.all()[:3]])
         hard_facts.append({
-            'fact': f'This movie has an IMDb rating of {movie.imdb_rating}',
-            'difficulty': 'H'
+            'text': f"The movie stars {actor_names}", 
+            'difficulty': 'hard'
         })
     
-    # Add more hard facts if needed
     hard_facts.append({
-        'fact': f'This {movie.genre} movie was released by {movie.studio.name if movie.studio else "an unknown studio"} in {movie.release_date}',
-        'difficulty': 'H'
+        'text': f"This movie has an IMDB rating of {movie.imdb_rating}", 
+        'difficulty': 'hard'
     })
     
-    # MEDIUM facts
     if movie.studio:
-        medium_facts.append({
-            'fact': f'This movie was produced by {movie.studio.name}',
-            'difficulty': 'M'
-        })
-    
-    if movie.release_date:
-        medium_facts.append({
-            'fact': f'This movie was released in {movie.release_date}',
-            'difficulty': 'M'
-        })
-    
-    actors = movie.actors.all()
-    if actors:
-        actor_names = ', '.join([actor.name for actor in actors[:3]])
-        medium_facts.append({
-            'fact': f'This movie stars {actor_names}',
-            'difficulty': 'M'
-        })
-    
-    # EASY facts
-    if movie.director:
-        easy_facts.append({
-            'fact': f'This movie was directed by {movie.director.name}',
-            'difficulty': 'E'
-        })
-    
-    if movie.genre:
-        easy_facts.append({
-            'fact': f'This movie belongs to the {movie.genre} genre',
-            'difficulty': 'E'
-        })
-    
-    # Combine all facts ensuring we have at least 3 of each difficulty
-    while len(hard_facts) < 3:
         hard_facts.append({
-            'fact': f'This is a challenging movie to guess from {movie.release_date}',
-            'difficulty': 'H'
+            'text': f"This movie was produced by {movie.studio.name}", 
+            'difficulty': 'hard'
         })
     
-    while len(medium_facts) < 3:
+    # Add medium facts
+    medium_facts = []
+    if movie.director:
         medium_facts.append({
-            'fact': f'This movie was made in the {movie.release_date}s',
-            'difficulty': 'M'
+            'text': f"The director is {movie.director.name}", 
+            'difficulty': 'medium'
         })
     
-    while len(easy_facts) < 3:
-        easy_facts.append({
-            'fact': f'This is a {movie.genre} movie',
-            'difficulty': 'E'
-        })
+    medium_facts.append({
+        'text': f"The movie's genre is {movie.genre}", 
+        'difficulty': 'medium'
+    })
     
-    # Return exactly 3 of each difficulty
-    return (hard_facts[:3] + medium_facts[:3] + easy_facts[:3])
+    medium_facts.append({
+        'text': f"This movie was released in {movie.release_date}", 
+        'difficulty': 'medium'
+    })
+    
+    # Add easy facts (placeholders if needed)
+    easy_facts = [
+        {'text': f"This is a {movie.genre} movie", 'difficulty': 'easy'},
+        {'text': f"The movie was made in the {str(movie.release_date)[:3]}0s", 'difficulty': 'easy'},
+        {'text': f"This movie exists in our database", 'difficulty': 'easy'}
+    ]
+    
+    # Ensure we have exactly 3 of each difficulty
+    facts.extend(hard_facts[:3])   # First 3 are hard
+    facts.extend(medium_facts[:3]) # Next 3 are medium
+    facts.extend(easy_facts[:3])   # Last 3 are easy
+    
+    return facts
+
+def game_over(request):
+    """
+    Display game over screen with final score and stats.
+    """
+    game_result = {
+        'movie_title': request.session.get('movie_title', ''),
+        'attempts': request.session.get('attempts', 0),
+        'was_correct': request.session.get('was_correct', False)
+    }
+    
+    # Clear game session data
+    request.session.pop('game_active', None)
+    request.session.pop('current_movie_id', None)
+    request.session.pop('attempts', None)
+    request.session.pop('revealed_trivia', None)
+    request.session.pop('movie_title', None)
+    request.session.pop('was_correct', None)
+    
+    return render(request, 'trivia_game/game_over.html', {'game_result': game_result})
+
+def movie_info(request, movie_id):
+    """
+    Display detailed information about a specific movie.
+    """
+    movie = get_object_or_404(Movie, pk=movie_id)
+    return render(request, 'trivia_game/movie_info.html', {'movie': movie})
+
+def manage_movies(request):
+    """
+    Admin interface for managing movies in the database.
+    """
+    movies = Movie.objects.all()
+    return render(request, 'trivia_game/manage_movies.html', {'movies': movies})
+
+def add_movie(request):
+    """
+    Add a new movie to the database.
+    """
+    if request.method == 'POST':
+        # Handle movie creation
+        pass
+    return render(request, 'trivia_game/add_movie.html')
+
+def delete_movie(request, movie_id):
+    """
+    Delete a movie from the database.
+    """
+    try:
+        movie = get_object_or_404(Movie, pk=movie_id)
+        movie.delete()
+        return JsonResponse({'success': True})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})

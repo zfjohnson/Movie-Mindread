@@ -1,36 +1,64 @@
-{% extends 'base.html' %}
+{% extends 'trivia_game/base.html' %}
+{% load static %}
+
+{% block title %}Movie Mindread - Game Over{% endblock %}
 
 {% block content %}
 <div class="container mt-5">
     <div class="row justify-content-center">
         <div class="col-md-8">
             <div class="card">
-                <div class="card-header {% if won %}bg-success{% else %}bg-danger{% endif %} text-white">
+                <div class="card-header bg-primary text-white">
                     <h2 class="mb-0">Game Over</h2>
                 </div>
                 <div class="card-body text-center">
-                    {% if won %}
-                        <h3 class="text-success mb-4">Congratulations!</h3>
-                        <p class="lead">You correctly guessed the movie in {{ attempts_used }} attempts!</p>
+                    {% if game_result.was_correct %}
+                        <div class="alert alert-success mb-4">
+                            <h4>Congratulations!</h4>
+                            <p>You correctly guessed the movie in {{ game_result.attempts }} attempts!</p>
+                        </div>
                     {% else %}
-                        <h3 class="text-danger mb-4">Game Over!</h3>
-                        <p class="lead">You ran out of attempts. The movie was:</p>
+                        <div class="alert alert-danger mb-4">
+                            <h4>Game Over!</h4>
+                            <p>The movie was: <strong>{{ game_result.movie_title }}</strong></p>
+                            <p>You used all {{ game_result.attempts }} attempts.</p>
+                        </div>
                     {% endif %}
 
-                    <div class="movie-info mt-4">
-                        <h4>{{ movie.title }}</h4>
-                        <p>Released: {{ movie.release_date }}</p>
-                        <p>Genre: {{ movie.genre }}</p>
-                        <p>IMDb Rating: {{ movie.imdb_rating }}</p>
+                    <div class="game-stats mb-4">
+                        <h5>Game Statistics</h5>
+                        <ul class="list-unstyled">
+                            <li>Movie: {{ game_result.movie_title }}</li>
+                            <li>Attempts Used: {{ game_result.attempts }}</li>
+                            <li>Result: {% if game_result.was_correct %}Success{% else %}Not Guessed{% endif %}</li>
+                        </ul>
                     </div>
 
-                    <div class="mt-4">
-                        <a href="{% url 'choose_movie' %}" class="btn btn-primary">Play Again</a>
-                        <a href="{% url 'index' %}" class="btn btn-secondary">Back to Home</a>
+                    <div class="d-grid gap-2 col-6 mx-auto">
+                        <a href="{% url 'trivia_game:choose_movie' %}" class="btn btn-primary btn-lg mb-2">
+                            Play Again
+                        </a>
+                        <a href="{% url 'trivia_game:index' %}" class="btn btn-outline-secondary">
+                            Back to Home
+                        </a>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<style>
+.game-stats {
+    background-color: #f8f9fa;
+    padding: 1.5rem;
+    border-radius: 8px;
+    margin: 2rem 0;
+}
+
+.game-stats ul li {
+    margin-bottom: 0.5rem;
+    font-size: 1.1rem;
+}
+</style>
 {% endblock %}

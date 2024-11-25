@@ -27,6 +27,34 @@ function initializeGameElements() {
     }
 }
 
+// Event Listeners Setup
+function setupEventListeners() {
+    // Setup navigation links
+    const manageLink = document.getElementById('manage-link');
+    if (manageLink) {
+        manageLink.addEventListener('click', () => {
+            window.location.href = '/manage/';
+        });
+    }
+
+    // Setup new game button
+    const newGameBtn = document.getElementById('new-game-btn');
+    if (newGameBtn) {
+        newGameBtn.addEventListener('click', startNewGame);
+    }
+
+    // Setup guess form submit
+    const guessForm = document.getElementById('guess-form');
+    if (guessForm) {
+        guessForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const guessInput = document.getElementById('guess-input');
+            submitGuess(guessInput.value);
+            guessInput.value = '';
+        });
+    }
+}
+
 // Movie Search Functionality
 function setupMovieSearch() {
     const searchInput = document.getElementById('movie-search');

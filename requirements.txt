@@ -5,7 +5,6 @@ python-dotenv==1.0.0
 # Database dependencies
 mysqlclient==2.2.0
 PyMySQL==1.1.0
-<<<<<<< HEAD
 mysql-connector-python==8.3.0
 
 # Frontend dependencies
@@ -20,8 +19,3 @@ pytest-django==4.7.0
 # Production dependencies
 gunicorn==21.2.0
 whitenoise==6.6.0
-=======
-mysql
-mysql-connector-python
-git+https://github.com/cinemagoer/cinemagoer
->>>>>>> sqlite-version

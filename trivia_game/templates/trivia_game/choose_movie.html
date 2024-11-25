@@ -1,58 +1,7 @@
-<<<<<<< HEAD
 {% extends 'trivia_game/base.html' %}
 {% load static %}
 
 {% block title %}Movie Mindread - Choose Movie{% endblock %}
-
-{% block content %}
-<div class="game-container">
-    <h2 class="mb-4">Choose a Movie</h2>
-    
-    {# Search Section #}
-    <div class="search-section mb-4">
-        <div class="input-group">
-            <input type="text" 
-                   id="movie-search" 
-                   class="form-control search-input" 
-                   placeholder="Search for a movie..."
-                   autocomplete="off">
-        </div>
-        <small class="form-text text-muted">
-            Start typing to search. Results will update automatically.
-        </small>
-    </div>
-
-    {# Loading Spinner #}
-    <div id="loading-spinner" class="spinner-border text-primary" style="display: none;" role="status">
-        <span class="visually-hidden">Loading...</span>
-    </div>
-
-    {# Message Container #}
-    <div id="message-container"></div>
-
-    {# Movie Results #}
-    <div id="movie-list" class="row g-4">
-        <!-- Movies will be dynamically loaded here -->
-    </div>
-
-    {# Selected Movie Details #}
-    <div id="selected-movie" class="mt-4" style="display: none;">
-        <div class="card">
-            <div class="card-body">
-                <h3 class="card-title">Selected Movie</h3>
-                <div class="movie-details">
-                    <h4 id="selected-title" class="mb-3"></h4>
-                    <p id="selected-info" class="mb-4"></p>
-                </div>
-                <div class="button-group">
-                    <button class="btn btn-success me-2" onclick="confirmSelection()">
-                        <i class="fas fa-check"></i> Confirm Selection
-                    </button>
-                    <button class="btn btn-secondary" onclick="cancelSelection()">
-                        <i class="fas fa-times"></i> Cancel
-                    </button>
-=======
-{% extends 'base.html' %}
 
 {% block content %}
 <div class="container mt-5">
@@ -60,243 +9,115 @@
         <div class="col-md-8">
             <div class="card">
                 <div class="card-header bg-primary text-white">
-                    <h2 class="mb-0">Chooser's Turn</h2>
+                    <h2 class="mb-0">Choose a Movie</h2>
                 </div>
                 <div class="card-body">
-                    <div class="text-center mb-4">
-                        <h3>Select a Movie</h3>
-                        <p class="lead">Choose a movie for the other player to guess. Once you select a movie, it will be the guesser's turn!</p>
-                    </div>
-                    
                     <div class="list-group">
                         {% for movie in movies %}
-                            <a href="{% url 'movie_info' movie.id %}" class="list-group-item list-group-item-action">
+                        <div class="movie-item mb-3">
+                            <div class="list-group-item list-group-item-action movie-header" 
+                                 onclick="toggleMovieDetails({{ movie.id }})">
                                 <div class="d-flex w-100 justify-content-between">
                                     <h5 class="mb-1">{{ movie.title }}</h5>
                                     <small>{{ movie.release_date }}</small>
                                 </div>
-                                <p class="mb-1">{{ movie.genre }}</p>
-                                <small>IMDb Rating: {{ movie.imdb_rating }}</small>
-                            </a>
-                        {% empty %}
-                            <div class="alert alert-warning">
-                                No movies available in the database.
+                                <p class="mb-1">Director: {{ movie.director.name }}</p>
+                                <small>Genre: {{ movie.genre }}</small>
                             </div>
+                            <div id="movie-details-{{ movie.id }}" class="movie-details collapse">
+                                <div class="card card-body border-0">
+                                    <div class="movie-info mb-3">
+                                        <h6>Movie Details:</h6>
+                                        <ul class="list-unstyled">
+                                            <li><strong>Title:</strong> {{ movie.title }}</li>
+                                            <li><strong>Release Date:</strong> {{ movie.release_date }}</li>
+                                            <li><strong>Director:</strong> {{ movie.director.name }}</li>
+                                            <li><strong>Genre:</strong> {{ movie.genre }}</li>
+                                            <li><strong>IMDB Rating:</strong> {{ movie.imdb_rating }}</li>
+                                            <li><strong>Studio:</strong> {{ movie.studio.name }}</li>
+                                            <li><strong>Actors:</strong> 
+                                                {% for actor in movie.actors.all %}
+                                                    {{ actor.name }}{% if not forloop.last %}, {% endif %}
+                                                {% endfor %}
+                                            </li>
+                                        </ul>
+                                    </div>
+                                    <div class="text-center">
+                                        <a href="{% url 'trivia_game:start_game' movie.id %}" 
+                                           class="btn btn-primary">
+                                            Choose This Movie
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="alert alert-warning">
+                            No movies available. Please add some movies first.
+                        </div>
                         {% endfor %}
                     </div>
->>>>>>> sqlite-version
                 </div>
             </div>
         </div>
     </div>
 </div>
-<<<<<<< HEAD
-
-{% endblock %}
-
-{% block extra_js %}
-<script>
-let selectedMovieId = null;
-let searchTimeout = null;
-
-// Initialize game elements when the page loads
-document.addEventListener('DOMContentLoaded', () => {
-    const searchInput = document.getElementById('movie-search');
-    if (searchInput) {
-        searchInput.addEventListener('input', debounceSearch);
-    }
-});
-
-function debounceSearch() {
-    if (searchTimeout) {
-        clearTimeout(searchTimeout);
-    }
-    searchTimeout = setTimeout(() => {
-        searchMovies();
-    }, 300);
-}
-
-function searchMovies() {
-    const searchInput = document.getElementById('movie-search');
-    const searchTerm = searchInput.value.trim();
-    
-    if (searchTerm.length < 2) {
-        document.getElementById('movie-list').innerHTML = '';
-        return;
-    }
-
-    document.getElementById('loading-spinner').style.display = 'block';
-    document.getElementById('movie-list').innerHTML = '';
-
-    fetch(`/trivia_game/search/?query=${encodeURIComponent(searchTerm)}`)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
-            }
-            return response.json();
-        })
-        .then(data => {
-            document.getElementById('loading-spinner').style.display = 'none';
-            
-            if (!data.movies || data.movies.length === 0) {
-                showMessage('No movies found. Try a different search term.', 'warning');
-                return;
-            }
-
-            const movieList = document.getElementById('movie-list');
-            movieList.innerHTML = '';
-
-            data.movies.forEach(movie => {
-                const movieCard = document.createElement('div');
-                movieCard.className = 'col-md-4 col-lg-3';
-                movieCard.innerHTML = `
-                    <div class="card h-100 movie-item" data-movie-id="${movie.movie_id}">
-                        <div class="card-body">
-                            <h5 class="card-title">${movie.title}</h5>
-                            <p class="card-text">
-                                ${movie.year ? `Year: ${movie.year}<br>` : ''}
-                                ${movie.director ? `Director: ${movie.director}<br>` : ''}
-                                ${movie.genres && movie.genres.length ? `Genres: ${movie.genres.join(', ')}` : ''}
-                            </p>
-                        </div>
-                    </div>
-                `;
-                
-                movieCard.querySelector('.movie-item').addEventListener('click', () => {
-                    selectMovie(movie);
-                });
-                
-                movieList.appendChild(movieCard);
-            });
-        })
-        .catch(error => {
-            document.getElementById('loading-spinner').style.display = 'none';
-            showMessage('Error searching movies: ' + error.message, 'danger');
-            console.error('Error:', error);
-        });
-}
-
-function selectMovie(movie) {
-    selectedMovieId = movie.movie_id;
-    
-    // Update UI
-    document.getElementById('selected-title').textContent = movie.title;
-    document.getElementById('selected-info').innerHTML = `
-        ${movie.year ? `Year: ${movie.year}<br>` : ''}
-        ${movie.director ? `Director: ${movie.director}<br>` : ''}
-        ${movie.genres && movie.genres.length ? `Genres: ${movie.genres.join(', ')}` : ''}
-    `;
-    document.getElementById('selected-movie').style.display = 'block';
-    
-    // Highlight selected movie
-    document.querySelectorAll('.movie-item').forEach(item => {
-        if (item.dataset.movieId === String(movie.movie_id)) {
-            item.classList.add('selected');
-        } else {
-            item.classList.remove('selected');
-        }
-    });
-}
-
-function cancelSelection() {
-    selectedMovieId = null;
-    document.getElementById('selected-movie').style.display = 'none';
-    document.querySelectorAll('.movie-item').forEach(item => {
-        item.classList.remove('selected');
-    });
-}
-
-function confirmSelection() {
-    if (!selectedMovieId) {
-        showMessage('Please select a movie first', 'warning');
-        return;
-    }
-
-    fetch(`/trivia_game/set_movie/${selectedMovieId}/`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': getCookie('csrftoken')
-        }
-    })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error('Network response was not ok');
-        }
-        return response.json();
-    })
-    .then(data => {
-        if (data.status === 'success') {
-            window.location.href = '/trivia_game/wait/';
-        } else {
-            throw new Error(data.message || 'Error setting movie');
-        }
-    })
-    .catch(error => {
-        showMessage('Error: ' + error.message, 'danger');
-    });
-}
-
-function showMessage(message, type) {
-    const messageContainer = document.getElementById('message-container');
-    messageContainer.innerHTML = `
-        <div class="alert alert-${type} alert-dismissible fade show" role="alert">
-            ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-    `;
-}
-
-function getCookie(name) {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-        const cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim();
-            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                break;
-            }
-        }
-    }
-    return cookieValue;
-}
-</script>
 
 <style>
-.movie-item {
+.movie-header {
     cursor: pointer;
-    transition: transform 0.2s, box-shadow 0.2s;
+    transition: background-color 0.2s;
 }
 
-.movie-item:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+.movie-header:hover {
+    background-color: rgba(0, 0, 0, 0.05);
 }
 
-.movie-item.selected {
-    border: 2px solid #28a745;
-    background-color: rgba(40, 167, 69, 0.1);
+.movie-details {
+    background-color: #f8f9fa;
+    border-radius: 0 0 0.25rem 0.25rem;
 }
 
-.loading-spinner {
-    display: flex;
-    justify-content: center;
-    margin: 2rem 0;
+.movie-info {
+    background-color: white;
+    padding: 1rem;
+    border-radius: 0.25rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-#message-container {
-    margin: 1rem 0;
+.movie-info ul li {
+    margin-bottom: 0.5rem;
 }
 
-.selected-movie {
-    margin-top: 2rem;
+.movie-item {
+    border: 1px solid rgba(0, 0, 0, 0.125);
+    border-radius: 0.25rem;
 }
 
-.button-group {
-    margin-top: 1rem;
+.movie-item .list-group-item {
+    border: none;
+    border-radius: 0.25rem 0.25rem 0 0;
+}
+
+.movie-details .card-body {
+    padding-top: 1rem;
 }
 </style>
-=======
->>>>>>> sqlite-version
+
+<script>
+function toggleMovieDetails(movieId) {
+    const detailsElement = document.getElementById(`movie-details-${movieId}`);
+    const allDetails = document.querySelectorAll('.movie-details');
+    
+    // Close all other open details first
+    allDetails.forEach(detail => {
+        if (detail !== detailsElement && detail.classList.contains('show')) {
+            detail.classList.remove('show');
+        }
+    });
+    
+    // Toggle the clicked details
+    detailsElement.classList.toggle('show');
+}
+</script>
 {% endblock %}
