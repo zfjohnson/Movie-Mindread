@@ -64,47 +64,76 @@
 </div>
 
 <!-- Add Movie Modal -->
-<div class="modal fade" id="addMovieModal" tabindex="-1">
-    <div class="modal-dialog">
+<div class="modal fade" id="addMovieModal" tabindex="-1" role="dialog" aria-labelledby="addMovieModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Add New Movie</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <h5 class="modal-title" id="addMovieModalLabel">Add New Movie</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
             </div>
             <div class="modal-body">
-                <form id="addMovieForm" onsubmit="return false;">
+                <form method="post" action="{% url 'add_movie' %}">
                     {% csrf_token %}
-                    <div class="mb-3">
-                        <label for="movieTitle" class="form-label">Title</label>
-                        <input type="text" class="form-control" id="movieTitle" name="title" required>
+                    <div class="form-group">
+                        <label for="title">Title:</label>
+                        <input type="text" class="form-control" id="title" name="title" required>
                     </div>
-                    <div class="mb-3">
-                        <label for="movieYear" class="form-label">Release Year</label>
-                        <input type="number" class="form-control" id="movieYear" name="release_date" 
-                               min="1888" max="2030" required>
+                    <div class="form-group">
+                        <label for="release_date">Release Date:</label>
+                        <input type="text" class="form-control" id="release_date" name="release_date" required>
                     </div>
-                    <div class="mb-3">
-                        <label for="movieGenre" class="form-label">Genre</label>
-                        <input type="text" class="form-control" id="movieGenre" name="genre" required>
+                    <div class="form-group">
+                        <label for="genre">Genre:</label>
+                        <input type="text" class="form-control" id="genre" name="genre" required>
                     </div>
-                    <div class="mb-3">
-                        <label for="movieRating" class="form-label">IMDb Rating</label>
-                        <input type="number" class="form-control" id="movieRating" name="imdb_rating" 
-                               min="0" max="10" step="0.1" required>
+                    <div class="form-group">
+                        <label for="director">Director:</label>
+                        <select class="form-control" id="director" name="director" required>
+                            <option value="">Select a director</option>
+                            {% for director in directors %}
+                                <option value="{{ director.id }}">{{ director.name }}</option>
+                            {% endfor %}
+                        </select>
                     </div>
-                    <div class="mb-3">
-                        <label for="movieDirector" class="form-label">Director</label>
-                        <input type="text" class="form-control" id="movieDirector" name="director">
+                    <div class="form-group">
+                        <label for="studio">Studio:</label>
+                        <select class="form-control" id="studio" name="studio" required>
+                            <option value="">Select a studio</option>
+                            {% for studio in studios %}
+                                <option value="{{ studio.id }}">{{ studio.name }}</option>
+                            {% endfor %}
+                        </select>
                     </div>
-                    <div class="mb-3">
-                        <label for="movieStudio" class="form-label">Studio</label>
-                        <input type="text" class="form-control" id="movieStudio" name="studio">
+                    <div class="form-group">
+                        <label for="actors">Actors:</label>
+                        <select class="form-control select2" id="actors" name="actors" multiple required>
+                            {% for actor in actors %}
+                                <option value="{{ actor.id }}">{{ actor.name }}</option>
+                            {% endfor %}
+                        </select>
                     </div>
+                    <div class="form-group">
+                        <label for="imdb_rating">IMDB Rating:</label>
+                        <input type="number" step="0.1" class="form-control" id="imdb_rating" name="imdb_rating" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Add Trivia Facts:</label>
+                        <div id="triviaContainer">
+                            <div class="trivia-entry">
+                                <select class="form-control mb-2" name="trivia_difficulty[]">
+                                    <option value="E">Easy</option>
+                                    <option value="M">Medium</option>
+                                    <option value="H">Hard</option>
+                                </select>
+                                <textarea class="form-control mb-2" name="trivia_fact[]" placeholder="Enter trivia fact"></textarea>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-secondary" onclick="addTriviaEntry()">Add Another Trivia Fact</button>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Add Movie</button>
                 </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" id="submitMovie">Add Movie</button>
             </div>
         </div>
     </div>
@@ -263,6 +292,30 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Add the new listener
         newButton.addEventListener('click', (e) => handleDelete(e, newButton));
+    });
+
+    function addTriviaEntry() {
+        const container = document.getElementById('triviaContainer');
+        const newEntry = document.createElement('div');
+        newEntry.className = 'trivia-entry';
+        newEntry.innerHTML = `
+            <select class="form-control mb-2" name="trivia_difficulty[]">
+                <option value="E">Easy</option>
+                <option value="M">Medium</option>
+                <option value="H">Hard</option>
+            </select>
+            <textarea class="form-control mb-2" name="trivia_fact[]" placeholder="Enter trivia fact"></textarea>
+            <button type="button" class="btn btn-danger mb-2" onclick="this.parentElement.remove()">Remove</button>
+        `;
+        container.appendChild(newEntry);
+    }
+
+    // Initialize select2 for actors multiple select
+    $(document).ready(function() {
+        $('.select2').select2({
+            placeholder: "Select actors",
+            allowClear: true
+        });
     });
 });
 </script>

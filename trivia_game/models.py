@@ -51,22 +51,53 @@ class Movie(models.Model):
     class Meta:
         ordering = ['-release_date']
 
-class Trivia(models.Model):
-    DIFFICULTY_CHOICES = [
-        ('E', 'Easy'),
-        ('M', 'Medium'),
-        ('H', 'Hard'),
-    ]
+class ProductionCompany(models.Model):
+    name = models.CharField(max_length=200)
+    founding_year = models.IntegerField(null=True, blank=True)
+    headquarters = models.CharField(max_length=200, blank=True)
+    movie = models.ForeignKey(Movie, on_delete=models.CASCADE, related_name='production_companies')
 
-    movie = models.ForeignKey(Movie, on_delete=models.CASCADE, related_name='trivia')
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        verbose_name_plural = "Production Companies"
+
+class EasyTrivia(models.Model):
+    movie = models.ForeignKey(Movie, on_delete=models.CASCADE, related_name='easy_trivia')
     trivia_fact = models.TextField()
-    difficulty = models.CharField(max_length=1, choices=DIFFICULTY_CHOICES)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.get_difficulty_display()} trivia for {self.movie.title}"
+        return f"Easy Trivia for {self.movie.title}"
 
     class Meta:
-        verbose_name_plural = "Trivia"
-        ordering = ['difficulty', 'created_at']
+        verbose_name_plural = "Easy Trivia"
+        ordering = ['created_at']
+
+class MediumTrivia(models.Model):
+    movie = models.ForeignKey(Movie, on_delete=models.CASCADE, related_name='medium_trivia')
+    trivia_fact = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Medium Trivia for {self.movie.title}"
+
+    class Meta:
+        verbose_name_plural = "Medium Trivia"
+        ordering = ['created_at']
+
+class HardTrivia(models.Model):
+    movie = models.ForeignKey(Movie, on_delete=models.CASCADE, related_name='hard_trivia')
+    trivia_fact = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Hard Trivia for {self.movie.title}"
+
+    class Meta:
+        verbose_name_plural = "Hard Trivia"
+        ordering = ['created_at']

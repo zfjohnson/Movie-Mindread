@@ -6,8 +6,10 @@ from . import views
 urlpatterns = [
     path("", views.index, name="index"),
     path('choose/', views.choose_movie, name='choose_movie'),
-    path('start/<int:movie_id>/', views.start_game, name='start_game'),
-    path('play/', views.play_game, name='play_game'),
+    path('start_game/<int:movie_id>/', views.start_game, name='start_game'),
+    path('start_game/', views.start_game, name='start_game_random'),  
+    path('play/<int:movie_id>/', views.play_game, name='play_game'),  
+    path('play/', views.play_game, name='play_game_continue'),  
     path('guess/', views.make_guess, name='make_guess'),
     path('game-over/', views.game_over, name='game_over'),
     path('info/<int:movie_id>/', views.movie_info, name='movie_info'),
