@@ -51,7 +51,7 @@ python manage.py migrate
 ```bash
 python manage.py fetch_imdb_data
 ```
-
+Note: Due to a current issue with the cinemagoerpackage itself, only the top 25 movies are able to be loaded. 
 ## Configuration
 
 1. Create a `.env` file in the root directory with the following variables:
