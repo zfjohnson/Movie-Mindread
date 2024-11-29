@@ -2,21 +2,13 @@
 
 A Django-based multiplayer movie guessing game where players test their movie knowledge through progressively revealing trivia facts.
 
-## Features
-
-- Progressive difficulty levels (Hard → Medium → Easy)
-- Real-time movie data from IMDb
-- Multiplayer support
-- Dynamic trivia generation
-- Score tracking system
-- Comprehensive movie database
-
 ## Prerequisites
 
 - Python 3.10 or higher
 - pip (Python package manager)
 - Git
-- SQLite3
+- MySQL
+- Cinemagoer (IMDb package)
 
 ## Installation
 
@@ -79,10 +71,10 @@ python manage.py runserver
    - 3 Medium difficulty facts
    - 3 Easy difficulty facts
 
-2. Facts are revealed one at a time, starting with hard difficulty
+2. Facts are revealed one at a time, getting easier as the game progresses
 3. Players can guess the movie at any time
 4. Points are awarded based on:
-   - How quickly the correct guess is made
+   - How quickly the correct guess is made (# of attempts)
    - How many trivia facts were revealed
    - The difficulty level of revealed facts
 
@@ -106,27 +98,7 @@ Run the test suite:
 python manage.py test
 ```
 
-## Troubleshooting
-
-1. Database Issues:
-   - Delete `db.sqlite3` and all migration files except `__init__.py`
-   - Run `python manage.py makemigrations`
-   - Run `python manage.py migrate`
-   - Run `python manage.py fetch_imdb_data`
-
-2. Package Issues:
-   - Delete `venv` folder
-   - Create new virtual environment
-   - Reinstall requirements
-
-
 ## Authors
 
 - Brayden Martin
 - Zachary Johnson
-
-## Acknowledgments
-
-- IMDb for movie data
-- Django Framework
-- All contributors and testers
