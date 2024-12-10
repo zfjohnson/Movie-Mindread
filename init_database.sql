@@ -5,20 +5,17 @@ CREATE TABLE trivia_game_studio (
     address TEXT
 );
 
--- Create Directors table
 CREATE TABLE trivia_game_director (
     id SERIAL PRIMARY KEY,
     name VARCHAR(200) NOT NULL,
     debut_movie VARCHAR(200)
 );
 
--- Create Actors table
 CREATE TABLE trivia_game_actor (
     id SERIAL PRIMARY KEY,
     name VARCHAR(200) NOT NULL
 );
 
--- Create Movies table
 CREATE TABLE trivia_game_movie (
     id SERIAL PRIMARY KEY,
     title VARCHAR(200) NOT NULL,
@@ -29,19 +26,15 @@ CREATE TABLE trivia_game_movie (
     director_id INTEGER REFERENCES trivia_game_director(id) ON DELETE SET NULL
 );
 
--- Create Movie-Actors junction table
 CREATE TABLE trivia_game_movie_actors (
     id SERIAL PRIMARY KEY,
     movie_id INTEGER REFERENCES trivia_game_movie(id) ON DELETE CASCADE,
     actor_id INTEGER REFERENCES trivia_game_actor(id) ON DELETE CASCADE
 );
 
--- Create Trivia table
 CREATE TABLE trivia_game_trivia (
     id SERIAL PRIMARY KEY,
     movie_id INTEGER REFERENCES trivia_game_movie(id) ON DELETE CASCADE,
     trivia_fact TEXT NOT NULL,
     difficulty VARCHAR(1) CHECK (difficulty IN ('E', 'M', 'H')),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );

@@ -1,32 +1,20 @@
-from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponse, JsonResponse
+from django.shortcuts import get_object_or_404, render, redirect
 from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_protect
-from .models import Movie, Trivia, Director, Studio
 from django.db.models import Q
+
+from .models import Movie, Trivia, Director, Studio
+
 import random
 import json
 
-class TriviaQuality:
-    """Tracks the quality and source of generated trivia facts.
-    
-    Quality Levels:
-    - HIGH (3): Database-sourced trivia facts
-    - MEDIUM (2): Direct movie attributes (director, year, etc.)
-    - LOW (1): Fallback or generic trivia
-    """
-    HIGH = 3    # Database trivia
-    MEDIUM = 2  # Direct movie attributes
-    LOW = 1     # Fallback/generic trivia
+class TrivaDif:
+    HIGH = 3
+    MEDIUM = 2
+    LOW = 1   
 
 class TriviaResult:
-    """Encapsulates a trivia fact with its metadata.
-    
-    Attributes:
-        fact (str): The actual trivia text
-        quality (TriviaQuality): Quality level of the trivia
-        source (str): Source of the trivia (database, actor, director, etc.)
-    """
     def __init__(self, fact, quality, source):
         self.fact = fact
         self.quality = quality
@@ -79,8 +67,8 @@ def add_movie(request):
                     'release_date': movie.release_date,
                     'genre': movie.genre,
                     'imdb_rating': str(movie.imdb_rating),
-                    'director': movie.director.name if movie.director else 'Unknown',
-                    'studio': movie.studio.name if movie.studio else 'Unknown'
+                    'director': movie.director.name,
+                    'studio': movie.studio.name
                 }
             })
         except Exception as e:
@@ -116,7 +104,6 @@ def delete_movie(request, movie_id):
     })
 
 def choose_movie(request):
-    """First phase: Chooser selects a movie"""
     # Clear any existing game state
     if 'game_state' in request.session:
         del request.session['game_state']
@@ -141,7 +128,6 @@ def movie_info(request, movie_id):
     })
 
 def edit_movie(request, movie_id):
-    """Edit an existing movie"""
     movie = get_object_or_404(Movie, pk=movie_id)
     
     if request.method == 'POST':
@@ -169,7 +155,6 @@ def edit_movie(request, movie_id):
     })
 
 def start_game(request, movie_id):
-    """Initialize a new game session."""
     try:
         movie = get_object_or_404(Movie, pk=movie_id)
         
@@ -188,7 +173,7 @@ def start_game(request, movie_id):
         trivia_result = generate_hard_trivia(movie)  # Always start with a hard fact
         game_state['revealed_trivia'].append({
             'trivia_fact': trivia_result.fact,
-            'difficulty': 'H',  # First hint is always hard
+            'difficulty': 'H', 
             'quality': trivia_result.quality
         })
         
@@ -199,14 +184,10 @@ def start_game(request, movie_id):
         
     except Exception as e:
         print(f"Error in start_game: {str(e)}")
-        return JsonResponse({'error': 'An error occurred'}, status=500)
+        return JsonResponse({'error': 'An error occurred'})
 
 def play_game(request):
-    """Second phase: Guesser tries to identify the movie"""
     game_state = request.session.get('game_state')
-    
-    if not game_state:
-        return redirect('choose_movie')
     
     # Get the movie object
     movie = get_object_or_404(Movie, pk=game_state['movie_id'])
@@ -223,35 +204,22 @@ def play_game(request):
 
 @require_POST
 def make_guess(request):
-    """Handle a movie guess"""
     try:
-        # Get the game state
         game_state = request.session.get('game_state')
-        if not game_state:
-            return JsonResponse({'error': 'No active game'}, status=400)
 
         # Get the guess from POST data
         guess = request.POST.get('guess', '').strip()
         
         if not guess:
-            return JsonResponse({'error': 'No guess provided'}, status=400)
+            return JsonResponse({'error': 'No guess provided'})
 
         # Get the correct movie
         movie = get_object_or_404(Movie, pk=game_state['movie_id'])
         
-        # Initialize num_guesses if it doesn't exist
-        if 'num_guesses' not in game_state:
-            game_state['num_guesses'] = 0
-            
-        # Initialize revealed_trivia if it doesn't exist
-        if 'revealed_trivia' not in game_state:
-            game_state['revealed_trivia'] = []
         
-        print(f"Current state - Attempts left: {game_state['attempts_left']}, Guesses made: {game_state['num_guesses']}")
         
         # Generate new trivia based on current number of guesses
         trivia_result = generate_trivia(movie, game_state['num_guesses'])
-        print(f"Generated trivia: {trivia_result.fact}")
         
         # Check if the guess is correct (case-insensitive)
         is_correct = guess.lower() == movie.title.lower()
@@ -314,7 +282,6 @@ def make_guess(request):
         return JsonResponse({'error': 'An error occurred'}, status=500)
 
 def game_over(request):
-    """Show game results and option to start new game"""
     game_state = request.session.get('game_state')
     
     if not game_state or not game_state['game_over']:
@@ -333,51 +300,28 @@ def game_over(request):
 
 
 def generate_trivia(movie, num_guesses):
-    """Generate trivia for a movie based on the number of guesses.
-    
-    Args:
-        movie (Movie): The movie object to generate trivia for
-        num_guesses (int): Number of guesses made so far
-        
-    Returns:
-        TriviaResult: A trivia fact with metadata about its quality
-    """
     try:
         # Validate inputs
         if not movie:
-            return TriviaResult("Error: No movie provided", TriviaQuality.LOW, "error")
-        if not isinstance(num_guesses, int) or num_guesses < 0 or num_guesses > 9:
-            return TriviaResult("Error: Invalid number of guesses", TriviaQuality.LOW, "error")
-
-        # Define difficulty levels based on number of revealed facts
-        print(f"Generating trivia for guess #{num_guesses + 1}")
-        
-        # First 2 guesses (0, 1) get hard facts
+            return TriviaResult("Error: No movie provided", "error")
+        # First 3 guesses (first, 0, 1) get hard facts
         if num_guesses < 2:
-            print("Generating HARD trivia")
             return generate_hard_trivia(movie)
             
         # Next 3 guesses (2, 3, 4) get medium facts
         elif num_guesses < 5:
-            print("Generating MEDIUM trivia")
             return generate_medium_trivia(movie)
             
         # Last 3 guesses (5, 6, 7, 8) get easy facts
         else:
-            print("Generating EASY trivia")
             return generate_easy_trivia(movie)
             
     except Exception as e:
         print(f"Error in generate_trivia: {str(e)}")
         return TriviaResult("An unexpected error occurred while generating trivia", 
-                          TriviaQuality.LOW, "error")
+                          TrivaDif.LOW, "error")
 
 def generate_hard_trivia(movie):
-    """Generate hard difficulty trivia.
-    
-    Returns:
-        TriviaResult: A trivia fact with metadata about its quality
-    """
     try:
         print(f"Generating hard trivia for movie: {movie.title}")
         
@@ -385,7 +329,7 @@ def generate_hard_trivia(movie):
         hard_trivia = Trivia.objects.filter(movie=movie).order_by('?').first()
         if hard_trivia:
             print(f"Found database trivia: {hard_trivia.trivia_fact}")
-            return TriviaResult(hard_trivia.trivia_fact, TriviaQuality.HIGH, "database")
+            return TriviaResult(hard_trivia.trivia_fact, TrivaDif.HIGH, "database")
 
         # Create a list of potential hard facts
         hard_facts = []
@@ -397,7 +341,7 @@ def generate_hard_trivia(movie):
                 actor_names = ', '.join(actor.name for actor in actors)
                 hard_facts.append({
                     'fact': f"This movie stars {actor_names}",
-                    'quality': TriviaQuality.MEDIUM,
+                    'quality': TrivaDif.MEDIUM,
                     'source': 'actors'
                 })
         except Exception as e:
@@ -408,7 +352,7 @@ def generate_hard_trivia(movie):
             if movie.studio:
                 hard_facts.append({
                     'fact': f"This movie was produced by {movie.studio.name}",
-                    'quality': TriviaQuality.MEDIUM,
+                    'quality': TrivaDif.MEDIUM,
                     'source': 'studio'
                 })
         except Exception as e:
@@ -418,7 +362,7 @@ def generate_hard_trivia(movie):
         if hasattr(movie, 'imdb_rating') and movie.imdb_rating:
             hard_facts.append({
                 'fact': f"This movie has an IMDB rating of {movie.imdb_rating}",
-                'quality': TriviaQuality.MEDIUM,
+                'quality': TrivaDif.MEDIUM,
                 'source': 'rating'
             })
         
@@ -432,7 +376,7 @@ def generate_hard_trivia(movie):
         print("No specific hard facts found, using fallback")
         return TriviaResult(
             f"This movie was released in {movie.release_date}",
-            TriviaQuality.LOW,
+            TrivaDif.LOW,
             "fallback"
         )
         
@@ -440,7 +384,7 @@ def generate_hard_trivia(movie):
         print(f"Error in generate_hard_trivia: {str(e)}")
         return TriviaResult(
             "Unable to generate hard trivia at this time",
-            TriviaQuality.LOW,
+            TrivaDif.LOW,
             "error"
         )
 
@@ -457,7 +401,7 @@ def generate_medium_trivia(movie):
         medium_trivia = Trivia.objects.filter(movie=movie).order_by('?').first()
         if medium_trivia:
             print(f"Found database trivia: {medium_trivia.trivia_fact}")
-            return TriviaResult(medium_trivia.trivia_fact, TriviaQuality.HIGH, "database")
+            return TriviaResult(medium_trivia.trivia_fact, TrivaDif.HIGH, "database")
 
         # Prepare fallback facts
         fallback_facts = []
@@ -470,7 +414,7 @@ def generate_medium_trivia(movie):
                 fallback_facts.append(
                     {'fact': f"This movie was directed by {movie.director.name}",
                      'source': 'director',
-                     'quality': TriviaQuality.MEDIUM
+                     'quality': TrivaDif.MEDIUM
                     }
                 )
         except Exception as e:
@@ -484,7 +428,7 @@ def generate_medium_trivia(movie):
                 fallback_facts.append(
                     {'fact': f"This movie was released in {movie.release_date}",
                      'source': 'year',
-                     'quality': TriviaQuality.MEDIUM
+                     'quality': TrivaDif.MEDIUM
                     }
                 )
         except Exception as e:
@@ -498,12 +442,12 @@ def generate_medium_trivia(movie):
         # Ultimate fallback
         print("No facts found, using generic fallback")
         return TriviaResult("This is a moderately challenging movie to guess",
-                          TriviaQuality.LOW, "generic")
+                          TrivaDif.LOW, "generic")
         
     except Exception as e:
         print(f"Error in generate_medium_trivia: {str(e)}")
         return TriviaResult("Unable to generate medium trivia at this time",
-                          TriviaQuality.LOW, "error")
+                          TrivaDif.LOW, "error")
 
 def generate_easy_trivia(movie):
     """Generate easy difficulty trivia.
@@ -518,7 +462,7 @@ def generate_easy_trivia(movie):
         easy_trivia = Trivia.objects.filter(movie=movie).order_by('?').first()
         if easy_trivia:
             print(f"Found database trivia: {easy_trivia.trivia_fact}")
-            return TriviaResult(easy_trivia.trivia_fact, TriviaQuality.HIGH, "database")
+            return TriviaResult(easy_trivia.trivia_fact, TrivaDif.HIGH, "database")
 
         # Fallback to genre facts
         genre_facts = []
@@ -530,7 +474,7 @@ def generate_easy_trivia(movie):
                 genre_facts.append(
                     {'fact': f"This movie's genre is {movie.genre}", 
                      'source': 'genre',
-                     'quality': TriviaQuality.MEDIUM
+                     'quality': TrivaDif.MEDIUM
                     }
                 )
         except Exception as e:
@@ -544,18 +488,18 @@ def generate_easy_trivia(movie):
         # Ultimate fallback
         print("No facts found, using generic fallback")
         return TriviaResult("This should be an easy movie to guess",
-                          TriviaQuality.LOW, "generic")
+                          TrivaDif.LOW, "generic")
         
     except Exception as e:
         print(f"Error in generate_easy_trivia: {str(e)}")
         return TriviaResult("Unable to generate easy trivia at this time",
-                          TriviaQuality.LOW, "error")
+                          TrivaDif.LOW, "error")
 
 def calculate_score_multiplier(trivia_quality, num_guesses):
     """Calculate score multiplier based on trivia quality and guess number.
     
     Args:
-        trivia_quality (TriviaQuality): Quality level of the trivia
+        trivia_quality (TrivaDif): Quality level of the trivia
         num_guesses (int): Number of guesses made so far
         
     Returns:
@@ -566,20 +510,20 @@ def calculate_score_multiplier(trivia_quality, num_guesses):
     
     # Quality adjustment
     quality_multiplier = {
-        TriviaQuality.HIGH: 1.2,    # Bonus for database trivia
-        TriviaQuality.MEDIUM: 1.0,  # Standard for direct attributes
-        TriviaQuality.LOW: 0.8      # Penalty for fallback trivia
+        TrivaDif.HIGH: 1.2,    # Bonus for database trivia
+        TrivaDif.MEDIUM: 1.0,  # Standard for direct attributes
+        TrivaDif.LOW: 0.8      # Penalty for fallback trivia
     }.get(trivia_quality, 1.0)
     
     return base_multiplier * quality_multiplier
 
-def calculate_score(movie, num_guesses, trivia_quality=TriviaQuality.MEDIUM):
+def calculate_score(movie, num_guesses, trivia_quality=TrivaDif.MEDIUM):
     """Calculate score based on remaining guesses and trivia quality.
     
     Args:
         movie (Movie): The movie object
         num_guesses (int): Number of guesses made so far
-        trivia_quality (TriviaQuality): Quality level of the trivia
+        trivia_quality (TrivaDif): Quality level of the trivia
         
     Returns:
         int: Score
@@ -606,9 +550,9 @@ def calculate_score(movie, num_guesses, trivia_quality=TriviaQuality.MEDIUM):
         
         # Apply quality multiplier
         quality_multiplier = {
-            TriviaQuality.HIGH: 1.2,   # 20% bonus for high-quality trivia
-            TriviaQuality.MEDIUM: 1.0,  # Standard score for medium quality
-            TriviaQuality.LOW: 0.8      # 20% penalty for low-quality trivia
+            TrivaDif.HIGH: 1.2,   # 20% bonus for high-quality trivia
+            TrivaDif.MEDIUM: 1.0,  # Standard score for medium quality
+            TrivaDif.LOW: 0.8      # 20% penalty for low-quality trivia
         }.get(trivia_quality, 1.0)
         
         return int(base_score * quality_multiplier)
